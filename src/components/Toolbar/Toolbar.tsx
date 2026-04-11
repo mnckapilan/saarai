@@ -55,10 +55,10 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
   return (
     <header className={styles.toolbar} role="banner">
       <div className={styles.left}>
-        <span className={styles.logo} aria-label="Python">
+        <span className={styles.logo} aria-label="Saarai">
           🐍
         </span>
-        <span className={styles.title}>Python IDE</span>
+        <span className={styles.title}>Saarai</span>
         <button
           className={styles.importButton}
           onClick={onImport}
