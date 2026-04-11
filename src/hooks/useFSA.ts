@@ -34,6 +34,32 @@ async function collectFiles(
   }
 }
 
+// Delete a file or directory at a path relative to dirHandle.
+// Uses recursive: true so it works for directories.
+export async function deleteFromDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+): Promise<void> {
+  const parts = relativePath.split('/')
+  let currentDir = dirHandle
+  for (const part of parts.slice(0, -1)) {
+    currentDir = await currentDir.getDirectoryHandle(part)
+  }
+  await currentDir.removeEntry(parts[parts.length - 1], { recursive: true })
+}
+
+// Create an empty directory at a path relative to dirHandle.
+export async function createDirectoryInDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+): Promise<void> {
+  const parts = relativePath.split('/')
+  let currentDir = dirHandle
+  for (const part of parts) {
+    currentDir = await currentDir.getDirectoryHandle(part, { create: true })
+  }
+}
+
 // Write content to a path relative to dirHandle.
 // e.g. dirHandle = "myproject/", relativePath = "src/main.py"
 export async function writeToDirectory(

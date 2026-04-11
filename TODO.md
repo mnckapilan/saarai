@@ -4,8 +4,8 @@ Future improvements for the Python Web IDE.
 
 ## File Tree
 - [ ] #1 Icons for file types
-- [ ] #2 File operations (rename, delete)
-- [ ] #3 New file / new folder
+- [x] #2 File operations (rename, delete)
+- [x] #3 New file / new folder
 
 ## Editor
 - [ ] #4 Keyboard shortcuts
