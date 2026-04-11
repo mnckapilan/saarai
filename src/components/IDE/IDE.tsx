@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { Editor } from '../Editor/Editor'
+import { Editor, type EditorHandle } from '../Editor/Editor'
 import { FileTree } from '../FileTree/FileTree'
 import { OutputPanel } from '../OutputPanel/OutputPanel'
 import { Toolbar } from '../Toolbar/Toolbar'
@@ -17,21 +17,6 @@ import {
 import { FileNode } from '../../types'
 import styles from './IDE.module.css'
 
-const DEFAULT_CODE = `# Welcome to Python Web IDE
-# Press ▶ Run or Cmd+Enter / Ctrl+Enter to execute
-
-def greet(name: str) -> str:
-    return f"Hello, {name}!"
-
-names = ["World", "Python", "Browser"]
-for name in names:
-    print(greet(name))
-
-# Try some math
-import math
-print(f"\\nπ ≈ {math.pi:.6f}")
-print(f"√2 ≈ {math.sqrt(2):.6f}")
-`
 
 function sortFileNodes(nodes: FileNode[]): FileNode[] {
   return nodes
@@ -120,10 +105,11 @@ function buildFileTreeFromPaths(filePaths: string[], extraDirPaths: string[] = [
 }
 
 export function IDE() {
-  const [code, setCode] = useState(DEFAULT_CODE)
+  const [code, setCode] = useState('')
   const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
 
+  const editorRef = useRef<EditorHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
@@ -207,12 +193,17 @@ export function IDE() {
       const file = e.target.files?.[0]
       if (!file) return
       file.text().then((text) => {
+        contentMapRef.current = new Map([[file.name, text]])
+        refreshFileTree()
         setCode(text)
-        const contents = new Map([[file.name, text]])
-        mountFiles(contents, '/project')
+        setActiveFilePath(file.name)
+        setLastSavedCode(text)
+        setLastSaveType(null)
+        mountFiles(contentMapRef.current, '/project')
       })
       e.target.value = ''
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [mountFiles],
   )
 
@@ -315,7 +306,7 @@ export function IDE() {
         } else {
           setActiveFilePath(null)
           setLastSavedCode(null)
-          setCode(DEFAULT_CODE)
+          setCode('')
         }
       }
     } catch (err) {
@@ -368,6 +359,7 @@ export function IDE() {
       const newPath = `${parent}/${newName}`
 
       if (isFile) {
+        editorRef.current?.disposeModel(path)
         const content = contentMapRef.current.get(path)!
         contentMapRef.current.delete(path)
         contentMapRef.current.set(newPath, content)
@@ -387,6 +379,7 @@ export function IDE() {
         const snapshot = Array.from(contentMapRef.current.entries())
         for (const [filePath, content] of snapshot) {
           if (filePath.startsWith(path + '/')) {
+            editorRef.current?.disposeModel(filePath)
             contentMapRef.current.delete(filePath)
             contentMapRef.current.set(newPath + filePath.slice(path.length), content)
           }
@@ -428,15 +421,19 @@ export function IDE() {
       const isFile = contentMapRef.current.has(path)
 
       if (isFile) {
+        editorRef.current?.disposeModel(path)
         contentMapRef.current.delete(path)
         if (activeFilePath === path) {
           setActiveFilePath(null)
           setLastSavedCode(null)
-          setCode(DEFAULT_CODE)
+          setCode('')
         }
       } else {
         for (const filePath of Array.from(contentMapRef.current.keys())) {
-          if (filePath.startsWith(path + '/')) contentMapRef.current.delete(filePath)
+          if (filePath.startsWith(path + '/')) {
+            editorRef.current?.disposeModel(filePath)
+            contentMapRef.current.delete(filePath)
+          }
         }
         for (const dirPath of Array.from(emptyDirsRef.current)) {
           if (dirPath === path || dirPath.startsWith(path + '/')) {
@@ -446,7 +443,7 @@ export function IDE() {
         if (activeFilePath === path || activeFilePath?.startsWith(path + '/')) {
           setActiveFilePath(null)
           setLastSavedCode(null)
-          setCode(DEFAULT_CODE)
+          setCode('')
         }
       }
 
@@ -559,13 +556,29 @@ export function IDE() {
         <Panel className={styles.panel}>
           <PanelGroup direction="vertical">
             <Panel defaultSize={65} minSize={20} className={styles.panel}>
-              <Editor
-                value={code}
-                onChange={setCode}
-                onRun={handleRun}
-                fontFamily={font.value}
-                fontLigatures={font.ligatures}
-              />
+              {activeFilePath !== null ? (
+                <Editor
+                  ref={editorRef}
+                  value={code}
+                  filePath={activeFilePath}
+                  onChange={setCode}
+                  onRun={handleRun}
+                  fontFamily={font.value}
+                  fontLigatures={font.ligatures}
+                />
+              ) : (
+                <div className={styles.noFile}>
+                  <span className={styles.noFileTitle}>No file open</span>
+                  <div className={styles.noFileButtons}>
+                    <button className={styles.noFileButton} onClick={handleImportClick}>
+                      Open file
+                    </button>
+                    <button className={styles.noFileButton} onClick={handleOpenFolderClick}>
+                      Open folder
+                    </button>
+                  </div>
+                </div>
+              )}
             </Panel>
 
             <PanelResizeHandle className={styles.resizeHandleRow}>
