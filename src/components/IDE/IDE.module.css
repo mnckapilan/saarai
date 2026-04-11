@@ -1,0 +1,43 @@
+.ide {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+.panelGroup {
+  flex: 1;
+  min-height: 0; /* critical: allows flex child to shrink below its content size */
+}
+
+.panel {
+  overflow: hidden;
+}
+
+/* Resize handle — the outer element captures the drag area */
+.resizeHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 5px;
+  background: var(--color-border);
+  cursor: row-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.resizeHandle:hover,
+.resizeHandle[data-resize-handle-active='pointer'],
+.resizeHandle[data-resize-handle-active='keyboard'] {
+  background: var(--color-accent);
+}
+
+/* Thin visual line inside the handle */
+.resizeHandleBar {
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}

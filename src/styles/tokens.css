@@ -1,0 +1,47 @@
+:root {
+  /* Surfaces */
+  --color-bg-primary: #1e1e1e;
+  --color-bg-secondary: #252526;
+  --color-bg-toolbar: #2d2d2d;
+  --color-bg-panel-header: #252526;
+
+  /* Borders */
+  --color-border: #3c3c3c;
+  --color-border-subtle: #2a2a2a;
+
+  /* Text */
+  --color-text-primary: #cccccc;
+  --color-text-secondary: #858585;
+  --color-text-muted: #555555;
+
+  /* Accent */
+  --color-accent: #0078d4;
+  --color-accent-hover: #1084d8;
+
+  /* Semantic output colors */
+  --color-stdout: #d4d4d4;
+  --color-stderr: #f48771;
+  --color-info: #9cdcfe;
+  --color-success: #4ec994;
+  --color-warning: #dcdcaa;
+
+  /* Typography */
+  --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas,
+    'Courier New', monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  /* Layout */
+  --toolbar-height: 44px;
+  --panel-header-height: 32px;
+}
