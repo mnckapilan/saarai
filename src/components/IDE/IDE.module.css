@@ -66,3 +66,45 @@
   background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
+
+/* Empty state shown when no file is open */
+.noFile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--spacing-xl);
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.noFileTitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.noFileButtons {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.noFileButton {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--spacing-lg);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.noFileButton:hover {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
