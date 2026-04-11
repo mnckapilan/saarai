@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { Editor } from '../Editor/Editor'
+import { Editor, type EditorHandle } from '../Editor/Editor'
 import { FileTree } from '../FileTree/FileTree'
 import { OutputPanel } from '../OutputPanel/OutputPanel'
 import { Toolbar } from '../Toolbar/Toolbar'
@@ -124,6 +124,7 @@ export function IDE() {
   const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
 
+  const editorRef = useRef<EditorHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
@@ -368,6 +369,7 @@ export function IDE() {
       const newPath = `${parent}/${newName}`
 
       if (isFile) {
+        editorRef.current?.disposeModel(path)
         const content = contentMapRef.current.get(path)!
         contentMapRef.current.delete(path)
         contentMapRef.current.set(newPath, content)
@@ -387,6 +389,7 @@ export function IDE() {
         const snapshot = Array.from(contentMapRef.current.entries())
         for (const [filePath, content] of snapshot) {
           if (filePath.startsWith(path + '/')) {
+            editorRef.current?.disposeModel(filePath)
             contentMapRef.current.delete(filePath)
             contentMapRef.current.set(newPath + filePath.slice(path.length), content)
           }
@@ -428,6 +431,7 @@ export function IDE() {
       const isFile = contentMapRef.current.has(path)
 
       if (isFile) {
+        editorRef.current?.disposeModel(path)
         contentMapRef.current.delete(path)
         if (activeFilePath === path) {
           setActiveFilePath(null)
@@ -436,7 +440,10 @@ export function IDE() {
         }
       } else {
         for (const filePath of Array.from(contentMapRef.current.keys())) {
-          if (filePath.startsWith(path + '/')) contentMapRef.current.delete(filePath)
+          if (filePath.startsWith(path + '/')) {
+            editorRef.current?.disposeModel(filePath)
+            contentMapRef.current.delete(filePath)
+          }
         }
         for (const dirPath of Array.from(emptyDirsRef.current)) {
           if (dirPath === path || dirPath.startsWith(path + '/')) {
@@ -560,7 +567,9 @@ export function IDE() {
           <PanelGroup direction="vertical">
             <Panel defaultSize={65} minSize={20} className={styles.panel}>
               <Editor
+                ref={editorRef}
                 value={code}
+                filePath={activeFilePath}
                 onChange={setCode}
                 onRun={handleRun}
                 fontFamily={font.value}
