@@ -139,6 +139,13 @@ export function IDE() {
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
   const [lastSavedCode, setLastSavedCode] = useState<string | null>(null)
+  const [autosaveEnabled, setAutosaveEnabled] = useState(false)
+  // 'auto' → last save was triggered by autosave; 'manual' → user-initiated; null → no save yet / file just loaded
+  const [lastSaveType, setLastSaveType] = useState<'auto' | 'manual' | null>(null)
+
+  // Stable refs so the autosave interval never captures stale closures.
+  const canSaveRef = useRef(false)
+  const handleSaveRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false))
 
   useEffect(() => {
     folderInputRef.current?.setAttribute('webkitdirectory', '')
@@ -177,6 +184,7 @@ export function IDE() {
         setFileTree(buildFileTreeFromPaths(Array.from(contents.keys())))
         setActiveFilePath(null)
         setLastSavedCode(null)
+        setLastSaveType(null)
         mountFiles(contents, cwd)
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
@@ -210,6 +218,7 @@ export function IDE() {
       dirHandleRef.current = null
       emptyDirsRef.current = new Set()
       setLastSavedCode(null)
+      setLastSaveType(null)
 
       const visibleFiles = files.filter(
         (f) => !f.webkitRelativePath.split('/').some((p) => p.startsWith('.')),
@@ -245,20 +254,27 @@ export function IDE() {
     setCode(content)
     setActiveFilePath(path)
     setLastSavedCode(content)
+    setLastSaveType(null)
   }, [])
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (): Promise<boolean> => {
     const handle = dirHandleRef.current
-    if (!handle || !activeFilePath) return
+    if (!handle || !activeFilePath) return false
     const relPath = activeFilePath.slice(handle.name.length + 1)
     try {
       await writeToDirectory(handle, relPath, code)
       contentMapRef.current.set(activeFilePath, code)
       setLastSavedCode(code)
+      return true
     } catch (err) {
       console.error('Failed to save file:', err)
+      return false
     }
   }, [activeFilePath, code])
+
+  const handleManualSave = useCallback(async () => {
+    if (await handleSave()) setLastSaveType('manual')
+  }, [handleSave])
 
   const handleReload = useCallback(async () => {
     const handle = dirHandleRef.current
@@ -279,6 +295,8 @@ export function IDE() {
 
       refreshFileTree()
       mountFiles(contents, cwdRef.current)
+
+      setLastSaveType(null)
 
       // Reload the active file's content if it still exists; deselect if gone.
       if (activeFilePath) {
@@ -443,8 +461,31 @@ export function IDE() {
     lastSavedCode !== null &&
     code !== lastSavedCode
 
-  const onSave = dirHandleRef.current !== null ? handleSave : undefined
-  const onReload = dirHandleRef.current !== null ? handleReload : undefined
+  // Keep refs current so the autosave interval closure never goes stale.
+  canSaveRef.current = canSave
+  handleSaveRef.current = handleSave
+
+  useEffect(() => {
+    if (!autosaveEnabled) return
+    const id = setInterval(async () => {
+      if (canSaveRef.current) {
+        const saved = await handleSaveRef.current()
+        if (saved) setLastSaveType('auto')
+      }
+    }, 5_000)
+    return () => clearInterval(id)
+  }, [autosaveEnabled])
+
+  const saveStatus: 'unsaved' | 'autosaved' | null = canSave
+    ? 'unsaved'
+    : lastSaveType === 'auto'
+    ? 'autosaved'
+    : null
+
+  const fsaOpen = dirHandleRef.current !== null
+  const onSave = fsaOpen ? handleManualSave : undefined
+  const onReload = fsaOpen ? handleReload : undefined
+  const onAutosaveToggle = fsaOpen ? () => setAutosaveEnabled((v) => !v) : undefined
 
   const fileOps =
     fileTree.length > 0
@@ -457,7 +498,7 @@ export function IDE() {
       : undefined
 
   useKeyboardShortcut({ key: 'Enter', metaOrCtrl: true }, handleRun)
-  useKeyboardShortcut({ key: 's', metaOrCtrl: true }, handleSave)
+  useKeyboardShortcut({ key: 's', metaOrCtrl: true }, handleManualSave)
 
   return (
     <div className={styles.ide}>
@@ -485,6 +526,9 @@ export function IDE() {
         onSave={onSave}
         canSave={canSave}
         onReload={onReload}
+        autosaveEnabled={autosaveEnabled}
+        onAutosaveToggle={onAutosaveToggle}
+        saveStatus={saveStatus}
         font={font}
         onFontChange={setFont}
       />
