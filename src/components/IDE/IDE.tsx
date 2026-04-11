@@ -67,12 +67,14 @@ function buildFileTree(files: File[]): FileNode[] {
 
 export function IDE() {
   const [code, setCode] = useState(DEFAULT_CODE)
-  const { status, output, runCode, clearOutput } = usePyodide()
+  const { status, output, runCode, clearOutput, mountFiles } = usePyodide()
   const { font, setFont } = useFont()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
-  const fileMapRef = useRef<Map<string, File>>(new Map())
+
+  // Stores text content of every file in the current folder: path → content
+  const contentMapRef = useRef<Map<string, string>>(new Map())
 
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
@@ -94,38 +96,63 @@ export function IDE() {
     folderInputRef.current?.click()
   }, [])
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const text = ev.target?.result
-      if (typeof text === 'string') setCode(text)
-    }
-    reader.readAsText(file)
-    e.target.value = ''
-  }, [])
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
 
-  const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    if (files.length === 0) return
+      file.text().then((text) => {
+        setCode(text)
 
-    const map = fileMapRef.current
-    map.clear()
-    files.forEach((f) => map.set(f.webkitRelativePath, f))
+        // Write the single file into Pyodide's MEMFS so open() calls work
+        const contents = new Map([[file.name, text]])
+        mountFiles(contents, '/project')
+      })
 
-    setFileTree(buildFileTree(files))
-    setActiveFilePath(null)
-    e.target.value = ''
-  }, [])
+      e.target.value = ''
+    },
+    [mountFiles],
+  )
+
+  const handleFolderChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? [])
+      if (files.length === 0) return
+
+      // Read all file contents eagerly so we can (a) populate the editor on
+      // click without another async read, and (b) write everything to Pyodide's
+      // MEMFS so that relative imports and open() calls work at runtime.
+      const visibleFiles = files.filter(
+        (f) => !f.webkitRelativePath.split('/').some((p) => p.startsWith('.')),
+      )
+
+      const entries = await Promise.all(
+        visibleFiles.map(async (f) => [f.webkitRelativePath, await f.text()] as const),
+      )
+
+      const contentMap = new Map(entries)
+      contentMapRef.current = contentMap
+
+      setFileTree(buildFileTree(files))
+      setActiveFilePath(null)
+
+      // Determine the working directory: first path segment of any file
+      const firstPath = visibleFiles[0]?.webkitRelativePath ?? ''
+      const rootFolder = firstPath.split('/')[0]
+      const cwd = rootFolder ? `/project/${rootFolder}` : '/project'
+
+      mountFiles(contentMap, cwd)
+
+      e.target.value = ''
+    },
+    [mountFiles],
+  )
 
   const handleFileSelect = useCallback((path: string) => {
-    const file = fileMapRef.current.get(path)
-    if (!file) return
-    file.text().then((text) => {
-      setCode(text)
-      setActiveFilePath(path)
-    })
+    const content = contentMapRef.current.get(path)
+    if (content === undefined) return
+    setCode(content)
+    setActiveFilePath(path)
   }, [])
 
   useKeyboardShortcut({ key: 'Enter', metaOrCtrl: true }, handleRun)
