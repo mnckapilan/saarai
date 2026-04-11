@@ -40,7 +40,8 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 | Python | Pyodide 0.26.4 (CDN) |
 | Layout | react-resizable-panels |
 | Styles | CSS Modules + CSS custom properties |
-| Tests | Playwright |
+| Unit tests | Vitest + Testing Library |
+| E2E tests | Playwright |
 
 ## Development
 
@@ -54,6 +55,12 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 # TypeScript type-check
 ~/.nvm/versions/node/v24.14.1/bin/npm run type-check
 
-# End-to-end tests
+# Unit tests (Vitest)
+~/.nvm/versions/node/v24.14.1/bin/npm run test:unit
+
+# Unit tests in watch mode
+~/.nvm/versions/node/v24.14.1/bin/npm run test:unit:watch
+
+# End-to-end tests (Playwright)
 ~/.nvm/versions/node/v24.14.1/bin/npm test
 ```
