@@ -11,6 +11,8 @@ interface ToolbarProps {
   onSave?: () => void
   /** Whether there are unsaved changes to the active file. */
   canSave?: boolean
+  /** Re-reads all files from disk; present only when opened via FSA. */
+  onReload?: () => void
   font: FontOption
   onFontChange: (font: FontOption) => void
 }
@@ -33,7 +35,7 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, font, onFontChange }: ToolbarProps) {
+export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, onReload, font, onFontChange }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
@@ -76,6 +78,16 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
             aria-label="Save file"
           >
             {canSave ? '● Save' : 'Save'}
+          </button>
+        )}
+        {onReload && (
+          <button
+            className={styles.importButton}
+            onClick={onReload}
+            title="Reload all files from disk"
+            aria-label="Reload from disk"
+          >
+            Reload
           </button>
         )}
       </div>
