@@ -17,7 +17,7 @@ All commands must be run using the Node 24 binary directly (nvm shell integratio
 ~/.nvm/versions/node/v24.14.1/bin/npm run type-check
 ```
 
-There are no tests yet — this is an MVP (v0).
+Playwright e2e tests live in `tests/`. Run with `~/.nvm/versions/node/v24.14.1/bin/npm test`.
 
 ## Architecture
 
@@ -27,14 +27,21 @@ A single-page React + TypeScript app built with Vite. The app is a browser-based
 
 ```
 IDE (state owner)
- ├── usePyodide()        ← manages Pyodide lifecycle + execution
+ ├── usePyodide()        ← manages Pyodide lifecycle, MEMFS, execution
  │    └── pyodide npm    ← WASM files load from CDN at runtime (indexURL)
- ├── Toolbar             ← receives status + onRun
+ ├── Toolbar             ← receives status + onRun + onImport + onOpenFolder
+ ├── FileTree            ← navigable folder/file tree, fires onFileSelect
  ├── Editor (Monaco)     ← owns code string, fires onRun via Cmd+Enter
  └── OutputPanel         ← receives OutputLine[] array
 ```
 
-`usePyodide` is the core hook. It dynamically imports pyodide, initialises the runtime with CDN `indexURL`, wires `stdout`/`stderr` callbacks to React state, and exposes `runCode(code)` + `clearOutput()`. Pyodide runs on the **main thread** (no Web Worker) — a noted future improvement.
+`usePyodide` is the core hook. It dynamically imports pyodide, initialises the runtime with CDN `indexURL`, wires `stdout`/`stderr` callbacks to React state, and exposes `runCode(code)`, `clearOutput()`, and `mountFiles(contents, cwd)`. Pyodide runs on the **main thread** (no Web Worker) — a noted future improvement.
+
+### File / folder import
+
+- **Single file** (`Open file`): reads the file via `file.text()`, sets editor content, and writes it to Pyodide's MEMFS at `/project/<filename>` with cwd `/project`.
+- **Folder** (`Open folder`): uses `<input webkitdirectory>`. All visible files (hidden dot-prefixed paths are skipped) are read eagerly with `Promise.allSettled` — unreadable files are silently skipped. The full tree is written to `/project/` and cwd is set to `/project/<rootFolder>`, so `import` and `open()` work relative to the project root.
+- `mountFiles` in `usePyodide` handles MEMFS writes: wipes `/project/`, recreates the directory tree via `pyodide.FS`, writes each file, then calls `os.chdir` + updates `sys.path`. If Pyodide is still loading when called, it polls until ready (up to 30 s).
 
 ### Key design decisions
 
