@@ -62,8 +62,11 @@ export function usePyodide() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // scriptDir: the MEMFS directory of the file being run (e.g. "/project/myproject/src").
+  // Python adds the script's own directory to sys.path[0] when you run a file normally;
+  // we replicate that behaviour so that sibling-module imports work correctly.
   const runCode = useCallback(
-    async (code: string) => {
+    async (code: string, scriptDir?: string) => {
       const pyodide = pyodideRef.current
       if (!pyodide || status !== 'ready') return
 
@@ -71,6 +74,24 @@ export function usePyodide() {
       setOutput([])
 
       try {
+        // Ensure the script's directory is on sys.path (mirrors `python script.py` behaviour)
+        // and invalidate the importer cache so newly written MEMFS files are visible.
+        pyodide.globals.set('_script_dir', scriptDir ?? '')
+        pyodide.runPython(`
+import sys, importlib
+_sd = _script_dir
+if _sd and _sd not in sys.path:
+    sys.path.insert(0, _sd)
+# Evict user-project modules so edits are picked up without remounting.
+_stale = [k for k, v in sys.modules.items()
+          if getattr(getattr(v, '__spec__', None), 'origin', None)
+          and v.__spec__.origin.startswith('/project/')]
+for _k in _stale:
+    del sys.modules[_k]
+importlib.invalidate_caches()
+del _sd, _stale, _script_dir
+`.trim())
+
         await pyodide.runPythonAsync(code)
       } catch (err) {
         // PythonError includes the full Python traceback in its message
@@ -86,6 +107,20 @@ export function usePyodide() {
   )
 
   const clearOutput = useCallback(() => setOutput([]), [])
+
+  // Write a single file into MEMFS without remounting the whole project.
+  // Called after save so that the next run sees the saved content.
+  const patchFile = useCallback((memfsPath: string, content: string) => {
+    const pyodide = pyodideRef.current
+    if (!pyodide) return
+    try {
+      const dirPath = memfsPath.substring(0, memfsPath.lastIndexOf('/'))
+      mkdirP(pyodide, dirPath)
+      pyodide.FS.writeFile(memfsPath, content, { encoding: 'utf8' })
+    } catch (err) {
+      console.error('Failed to patch file in MEMFS:', err)
+    }
+  }, [])
 
   // Write a set of files into Pyodide's MEMFS under /project/ and set the
   // Python working directory so that relative imports and open() calls work.
@@ -131,13 +166,18 @@ os.makedirs('/project')
         pyodide.FS.writeFile(fullPath, content, { encoding: 'utf8' })
       }
 
-      // Set the Python working directory and ensure it's on sys.path
+      // Set cwd, add it to sys.path, and flush Python's importer caches so
+      // newly written MEMFS files are discoverable on the next import.
+      // Without invalidate_caches(), sys.path_importer_cache retains a
+      // pre-mount snapshot and raises ModuleNotFoundError even when the file
+      // is physically present.
       pyodide.globals.set('_mount_cwd', cwd)
       pyodide.runPython(`
-import os, sys
+import os, sys, importlib
 os.chdir(_mount_cwd)
 if _mount_cwd not in sys.path:
     sys.path.insert(0, _mount_cwd)
+importlib.invalidate_caches()
 del _mount_cwd
 `.trim())
 
@@ -155,5 +195,5 @@ del _mount_cwd
     }
   }, [])
 
-  return { status, output, runCode, clearOutput, mountFiles }
+  return { status, output, runCode, clearOutput, mountFiles, patchFile }
 }
