@@ -60,7 +60,7 @@ export function IDE() {
         ref={fileInputRef}
         type="file"
         accept=".py,.txt"
-        style={{ display: 'none' }}
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
         onChange={handleFileChange}
         aria-hidden="true"
       />
