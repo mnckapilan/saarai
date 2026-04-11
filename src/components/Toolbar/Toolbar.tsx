@@ -13,6 +13,12 @@ interface ToolbarProps {
   canSave?: boolean
   /** Re-reads all files from disk; present only when opened via FSA. */
   onReload?: () => void
+  /** Whether autosave is currently enabled. */
+  autosaveEnabled?: boolean
+  /** Toggles autosave; present only when opened via FSA. */
+  onAutosaveToggle?: () => void
+  /** Save status to display alongside the autosave toggle. */
+  saveStatus?: 'unsaved' | 'autosaved' | null
   font: FontOption
   onFontChange: (font: FontOption) => void
 }
@@ -35,7 +41,7 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, onReload, font, onFontChange }: ToolbarProps) {
+export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
@@ -90,6 +96,16 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
             Reload
           </button>
         )}
+        {onAutosaveToggle && (
+          <button
+            className={`${styles.importButton} ${autosaveEnabled ? styles.autosaveOn : ''}`}
+            onClick={onAutosaveToggle}
+            title={autosaveEnabled ? 'Autosave is on — click to disable' : 'Click to enable autosave'}
+            aria-label={autosaveEnabled ? 'Disable autosave' : 'Enable autosave'}
+          >
+            {autosaveEnabled ? '● Autosave' : 'Autosave'}
+          </button>
+        )}
       </div>
 
       <div className={styles.right}>
@@ -111,6 +127,12 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
           ))}
         </select>
 
+        {saveStatus === 'unsaved' && (
+          <span className={styles.saveStatusUnsaved} aria-live="polite">Unsaved changes</span>
+        )}
+        {saveStatus === 'autosaved' && (
+          <span className={styles.saveStatusAutosaved} aria-live="polite">Autosaved</span>
+        )}
         <div className={styles.divider} aria-hidden="true" />
         <div className={styles.status} aria-live="polite">
           {isLoading && (
