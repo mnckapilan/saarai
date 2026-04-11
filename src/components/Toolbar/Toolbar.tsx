@@ -7,6 +7,10 @@ interface ToolbarProps {
   onRun: () => void
   onImport: () => void
   onOpenFolder: () => void
+  /** Present only when a folder was opened via the File System Access API. */
+  onSave?: () => void
+  /** Whether there are unsaved changes to the active file. */
+  canSave?: boolean
   font: FontOption
   onFontChange: (font: FontOption) => void
 }
@@ -29,7 +33,7 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, onImport, onOpenFolder, font, onFontChange }: ToolbarProps) {
+export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, font, onFontChange }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
@@ -63,6 +67,17 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, font, onFontCha
         >
           Open folder
         </button>
+        {onSave && (
+          <button
+            className={styles.saveButton}
+            onClick={onSave}
+            disabled={!canSave}
+            title="Save file (⌘S / Ctrl+S)"
+            aria-label="Save file"
+          >
+            {canSave ? '● Save' : 'Save'}
+          </button>
+        )}
       </div>
 
       <div className={styles.right}>
