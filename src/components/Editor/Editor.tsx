@@ -66,6 +66,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
   const modelsRef = useRef<Map<string, MonacoTypes.editor.ITextModel>>(new Map())
+  const viewStatesRef = useRef<Map<string, MonacoTypes.editor.ICodeEditorViewState>>(new Map())
+  const activePathRef = useRef<string | null>(null)
   const changeSubRef = useRef<MonacoTypes.IDisposable | null>(null)
 
   // Stable refs so that callbacks registered once (e.g. in handleMount) always
@@ -94,6 +96,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   ) {
     changeSubRef.current?.dispose()
 
+    // Save view state (scroll + cursor) of the outgoing file before switching.
+    const outgoingPath = activePathRef.current
+    if (outgoingPath) {
+      const vs = editor.saveViewState()
+      if (vs) viewStatesRef.current.set(outgoingPath, vs)
+    }
+
     const existing = modelsRef.current.get(path)
     const activeModel = existing ?? (() => {
       const uri = monaco.Uri.parse(`inmemory://model/${encodeURIComponent(path)}`)
@@ -101,7 +110,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       modelsRef.current.set(path, m)
       return m
     })()
+
     editor.setModel(activeModel)
+    activePathRef.current = path
+
+    // Restore saved view state (scroll + cursor) for this file, if any.
+    const savedViewState = viewStatesRef.current.get(path)
+    if (savedViewState) editor.restoreViewState(savedViewState)
 
     // Sync editorValue to the model's current content — this prevents
     // @monaco-editor/react from ever seeing a stale delta and pushing the
@@ -157,6 +172,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (model) {
           model.dispose()
           modelsRef.current.delete(path)
+          viewStatesRef.current.delete(path)
         }
       },
     }),
