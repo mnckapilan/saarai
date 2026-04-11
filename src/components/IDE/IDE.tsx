@@ -260,6 +260,44 @@ export function IDE() {
     }
   }, [activeFilePath, code])
 
+  const handleReload = useCallback(async () => {
+    const handle = dirHandleRef.current
+    if (!handle) return
+
+    const confirmed = window.confirm(
+      `Reload "${handle.name}" from disk?\n\n` +
+      `All files will be re-read from their current state on disk. ` +
+      `Any unsaved edits in the editor will be lost.`,
+    )
+    if (!confirmed) return
+
+    try {
+      const contents = await readDirectory(handle)
+      contentMapRef.current = contents
+      // Empty dirs aren't recoverable from a disk read — clear them.
+      emptyDirsRef.current = new Set()
+
+      refreshFileTree()
+      mountFiles(contents, cwdRef.current)
+
+      // Reload the active file's content if it still exists; deselect if gone.
+      if (activeFilePath) {
+        const fresh = contents.get(activeFilePath)
+        if (fresh !== undefined) {
+          setCode(fresh)
+          setLastSavedCode(fresh)
+        } else {
+          setActiveFilePath(null)
+          setLastSavedCode(null)
+          setCode(DEFAULT_CODE)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reload folder:', err)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilePath, mountFiles])
+
   // ── File operations ────────────────────────────────────────────────────────
 
   const handleCreateFile = useCallback(
@@ -406,6 +444,7 @@ export function IDE() {
     code !== lastSavedCode
 
   const onSave = dirHandleRef.current !== null ? handleSave : undefined
+  const onReload = dirHandleRef.current !== null ? handleReload : undefined
 
   const fileOps =
     fileTree.length > 0
@@ -445,6 +484,7 @@ export function IDE() {
         onOpenFolder={handleOpenFolderClick}
         onSave={onSave}
         canSave={canSave}
+        onReload={onReload}
         font={font}
         onFontChange={setFont}
       />
