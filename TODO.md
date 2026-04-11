@@ -47,3 +47,11 @@ Future improvements for the Python Web IDE.
 ## UX
 - [ ] #20 Dark / light theme toggle
 - [ ] #21 Mobile-friendly layout
+
+## Monaco Improvements
+- [ ] #23 Multiple editor models — one `ITextModel` per file (keyed by URI) so undo history, cursor position, and scroll position are preserved when switching files
+- [ ] #24 Bracket pair colorization — enable `bracketPairColorization: { enabled: true }` in editor options
+- [ ] #25 Python snippets in autocomplete — enable `suggest.showSnippets` so def/class/if/for completions appear
+- [ ] #26 Format on paste / format on type — enable `formatOnPaste` and `formatOnType` for auto-indentation
+- [ ] #27 Smooth scrolling & cursor animation — `smoothScrolling: true`, `cursorSmoothCaretAnimation: 'on'`
+- [ ] #28 Language server / LSP integration (Pylsp or Pyright via Pyodide) — real autocomplete, type errors, go-to-definition
