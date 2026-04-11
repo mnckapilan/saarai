@@ -6,6 +6,7 @@ interface ToolbarProps {
   status: PyodideStatus
   onRun: () => void
   onImport: () => void
+  onOpenFolder: () => void
   font: FontOption
   onFontChange: (font: FontOption) => void
 }
@@ -28,7 +29,7 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, onImport, font, onFontChange }: ToolbarProps) {
+export function Toolbar({ status, onRun, onImport, onOpenFolder, font, onFontChange }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
@@ -53,6 +54,14 @@ export function Toolbar({ status, onRun, onImport, font, onFontChange }: Toolbar
           aria-label="Import Python file"
         >
           Open file
+        </button>
+        <button
+          className={styles.importButton}
+          onClick={onOpenFolder}
+          title="Open folder"
+          aria-label="Open folder"
+        >
+          Open folder
         </button>
       </div>
 
