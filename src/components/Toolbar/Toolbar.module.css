@@ -130,6 +130,31 @@
   cursor: default;
 }
 
+/* Autosave toggle — active state */
+.autosaveOn {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.autosaveOn:hover {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  opacity: 0.85;
+}
+
+/* Save status indicators */
+.saveStatusUnsaved {
+  font-size: 12px;
+  color: var(--color-warning);
+  white-space: nowrap;
+}
+
+.saveStatusAutosaved {
+  font-size: 12px;
+  color: var(--color-success);
+  white-space: nowrap;
+}
+
 /* Font selector */
 .fontLabel {
   font-size: 11px;
