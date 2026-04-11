@@ -5,6 +5,7 @@ import styles from './Toolbar.module.css'
 interface ToolbarProps {
   status: PyodideStatus
   onRun: () => void
+  onImport: () => void
   font: FontOption
   onFontChange: (font: FontOption) => void
 }
@@ -27,7 +28,7 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, font, onFontChange }: ToolbarProps) {
+export function Toolbar({ status, onRun, onImport, font, onFontChange }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
@@ -45,6 +46,14 @@ export function Toolbar({ status, onRun, font, onFontChange }: ToolbarProps) {
           🐍
         </span>
         <span className={styles.title}>Python IDE</span>
+        <button
+          className={styles.importButton}
+          onClick={onImport}
+          title="Open .py file"
+          aria-label="Import Python file"
+        >
+          Open file
+        </button>
       </div>
 
       <div className={styles.right}>
