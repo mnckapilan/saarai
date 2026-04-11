@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  base: '/saarai/',
   optimizeDeps: {
     // Pyodide uses its own module loading system and must not be pre-bundled
     exclude: ['pyodide'],
