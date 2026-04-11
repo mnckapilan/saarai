@@ -7,6 +7,7 @@ import { Toolbar } from '../Toolbar/Toolbar'
 import { usePyodide } from '../../hooks/usePyodide'
 import { useFont } from '../../hooks/useFont'
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut'
+import { fsaSupported, readDirectory, writeToDirectory } from '../../hooks/useFSA'
 import { FileNode } from '../../types'
 import styles from './IDE.module.css'
 
@@ -26,6 +27,18 @@ print(f"\\nπ ≈ {math.pi:.6f}")
 print(f"√2 ≈ {math.sqrt(2):.6f}")
 `
 
+function sortFileNodes(nodes: FileNode[]): FileNode[] {
+  return nodes
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    .map((n) =>
+      n.type === 'directory' && n.children ? { ...n, children: sortFileNodes(n.children) } : n,
+    )
+}
+
+// Build a file tree from File[] (fallback path using <input webkitdirectory>).
 function buildFileTree(files: File[]): FileNode[] {
   const root: FileNode[] = []
 
@@ -52,17 +65,36 @@ function buildFileTree(files: File[]): FileNode[] {
     }
   }
 
-  const sortNodes = (ns: FileNode[]): FileNode[] =>
-    ns
-      .sort((a, b) => {
-        if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
-        return a.name.localeCompare(b.name)
-      })
-      .map((n) =>
-        n.type === 'directory' && n.children ? { ...n, children: sortNodes(n.children) } : n,
-      )
+  return sortFileNodes(root)
+}
 
-  return sortNodes(root)
+// Build a file tree from a flat list of paths (FSA path).
+function buildFileTreeFromPaths(paths: string[]): FileNode[] {
+  const root: FileNode[] = []
+
+  for (const path of paths) {
+    const parts = path.split('/')
+    let nodes = root
+
+    for (let i = 0; i < parts.length; i++) {
+      const name = parts[i]
+      const nodePath = parts.slice(0, i + 1).join('/')
+      const isLast = i === parts.length - 1
+
+      if (isLast) {
+        nodes.push({ name, path: nodePath, type: 'file' })
+      } else {
+        let dir = nodes.find((n) => n.name === name && n.type === 'directory')
+        if (!dir) {
+          dir = { name, path: nodePath, type: 'directory', children: [] }
+          nodes.push(dir)
+        }
+        nodes = dir.children!
+      }
+    }
+  }
+
+  return sortFileNodes(root)
 }
 
 export function IDE() {
@@ -75,9 +107,15 @@ export function IDE() {
 
   // Stores text content of every file in the current folder: path → content
   const contentMapRef = useRef<Map<string, string>>(new Map())
+  // Holds the FSA directory handle when a folder was opened via showDirectoryPicker.
+  // Null when using the fallback <input webkitdirectory> (no write-back possible).
+  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null)
 
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
+  // The editor content at the time the active file was last loaded or saved.
+  // Used to determine whether there are unsaved changes.
+  const [lastSavedCode, setLastSavedCode] = useState<string | null>(null)
 
   // webkitdirectory isn't in React's type defs — set via DOM after mount
   useEffect(() => {
@@ -92,9 +130,32 @@ export function IDE() {
     fileInputRef.current?.click()
   }, [])
 
-  const handleOpenFolderClick = useCallback(() => {
-    folderInputRef.current?.click()
-  }, [])
+  const handleOpenFolderClick = useCallback(async () => {
+    if (fsaSupported()) {
+      try {
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
+        dirHandleRef.current = handle
+
+        const contents = await readDirectory(handle)
+        contentMapRef.current = contents
+
+        setFileTree(buildFileTreeFromPaths(Array.from(contents.keys())))
+        setActiveFilePath(null)
+        setLastSavedCode(null)
+
+        const cwd = `/project/${handle.name}`
+        mountFiles(contents, cwd)
+      } catch (err) {
+        // AbortError = user cancelled the picker — silently ignore
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('Failed to open folder:', err)
+        }
+      }
+    } else {
+      // Fallback for Firefox / Safari: read-only via <input webkitdirectory>
+      folderInputRef.current?.click()
+    }
+  }, [mountFiles])
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,14 +175,15 @@ export function IDE() {
     [mountFiles],
   )
 
+  // Fallback folder handler used when FSA is not supported.
   const handleFolderChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? [])
       if (files.length === 0) return
 
-      // Read all file contents eagerly so we can (a) populate the editor on
-      // click without another async read, and (b) write everything to Pyodide's
-      // MEMFS so that relative imports and open() calls work at runtime.
+      dirHandleRef.current = null
+      setLastSavedCode(null)
+
       const visibleFiles = files.filter(
         (f) => !f.webkitRelativePath.split('/').some((p) => p.startsWith('.')),
       )
@@ -141,7 +203,6 @@ export function IDE() {
       setFileTree(buildFileTree(files))
       setActiveFilePath(null)
 
-      // Determine the working directory: first path segment of any file
       const firstPath = visibleFiles[0]?.webkitRelativePath ?? ''
       const rootFolder = firstPath.split('/')[0]
       const cwd = rootFolder ? `/project/${rootFolder}` : '/project'
@@ -158,9 +219,37 @@ export function IDE() {
     if (content === undefined) return
     setCode(content)
     setActiveFilePath(path)
+    setLastSavedCode(content)
   }, [])
 
+  const handleSave = useCallback(async () => {
+    const handle = dirHandleRef.current
+    if (!handle || !activeFilePath) return
+
+    // Strip the directory name prefix to get the path relative to the handle.
+    // e.g. "myproject/src/main.py" with handle.name="myproject" → "src/main.py"
+    const relPath = activeFilePath.slice(handle.name.length + 1)
+    try {
+      await writeToDirectory(handle, relPath, code)
+      contentMapRef.current.set(activeFilePath, code)
+      setLastSavedCode(code)
+    } catch (err) {
+      console.error('Failed to save file:', err)
+    }
+  }, [activeFilePath, code])
+
+  // A file has unsaved changes when the editor content differs from what was last loaded/saved.
+  const canSave =
+    dirHandleRef.current !== null &&
+    activeFilePath !== null &&
+    lastSavedCode !== null &&
+    code !== lastSavedCode
+
   useKeyboardShortcut({ key: 'Enter', metaOrCtrl: true }, handleRun)
+  useKeyboardShortcut({ key: 's', metaOrCtrl: true }, handleSave)
+
+  // Only pass onSave when a folder was opened via FSA (write-back is available).
+  const onSave = dirHandleRef.current !== null ? handleSave : undefined
 
   return (
     <div className={styles.ide}>
@@ -185,6 +274,8 @@ export function IDE() {
         onRun={handleRun}
         onImport={handleImportClick}
         onOpenFolder={handleOpenFolderClick}
+        onSave={onSave}
+        canSave={canSave}
         font={font}
         onFontChange={setFont}
       />
