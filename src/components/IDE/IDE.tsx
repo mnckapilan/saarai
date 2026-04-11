@@ -126,9 +126,14 @@ export function IDE() {
         (f) => !f.webkitRelativePath.split('/').some((p) => p.startsWith('.')),
       )
 
-      const entries = await Promise.all(
+      // Use allSettled so a single unreadable file (locked, binary, special)
+      // doesn't abort the entire import.
+      const results = await Promise.allSettled(
         visibleFiles.map(async (f) => [f.webkitRelativePath, await f.text()] as const),
       )
+      const entries = results
+        .filter((r): r is PromiseFulfilledResult<readonly [string, string]> => r.status === 'fulfilled')
+        .map((r) => r.value)
 
       const contentMap = new Map(entries)
       contentMapRef.current = contentMap
