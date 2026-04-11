@@ -15,8 +15,34 @@
   overflow: hidden;
 }
 
-/* Resize handle — the outer element captures the drag area */
-.resizeHandle {
+/* Column resize handle (between file tree and editor) */
+.resizeHandleCol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5px;
+  background: var(--color-border);
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.resizeHandleCol:hover,
+.resizeHandleCol[data-resize-handle-active='pointer'],
+.resizeHandleCol[data-resize-handle-active='keyboard'] {
+  background: var(--color-accent);
+}
+
+.resizeHandleBarCol {
+  height: 32px;
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+/* Row resize handle (between editor and output) */
+.resizeHandleRow {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -27,14 +53,13 @@
   transition: background 0.15s;
 }
 
-.resizeHandle:hover,
-.resizeHandle[data-resize-handle-active='pointer'],
-.resizeHandle[data-resize-handle-active='keyboard'] {
+.resizeHandleRow:hover,
+.resizeHandleRow[data-resize-handle-active='pointer'],
+.resizeHandleRow[data-resize-handle-active='keyboard'] {
   background: var(--color-accent);
 }
 
-/* Thin visual line inside the handle */
-.resizeHandleBar {
+.resizeHandleBarRow {
   width: 32px;
   height: 3px;
   border-radius: 2px;

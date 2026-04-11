@@ -7,3 +7,10 @@ export interface OutputLine {
 }
 
 export type PyodideStatus = 'loading' | 'ready' | 'running' | 'error'
+
+export interface FileNode {
+  name: string
+  path: string
+  type: 'file' | 'directory'
+  children?: FileNode[]
+}
