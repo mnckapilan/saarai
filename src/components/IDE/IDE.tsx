@@ -7,7 +7,13 @@ import { Toolbar } from '../Toolbar/Toolbar'
 import { usePyodide } from '../../hooks/usePyodide'
 import { useFont } from '../../hooks/useFont'
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut'
-import { fsaSupported, readDirectory, writeToDirectory } from '../../hooks/useFSA'
+import {
+  fsaSupported,
+  readDirectory,
+  writeToDirectory,
+  deleteFromDirectory,
+  createDirectoryInDirectory,
+} from '../../hooks/useFSA'
 import { FileNode } from '../../types'
 import styles from './IDE.module.css'
 
@@ -38,7 +44,7 @@ function sortFileNodes(nodes: FileNode[]): FileNode[] {
     )
 }
 
-// Build a file tree from File[] (fallback path using <input webkitdirectory>).
+// Build a file tree from File[] (fallback path via <input webkitdirectory>).
 function buildFileTree(files: File[]): FileNode[] {
   const root: FileNode[] = []
 
@@ -68,19 +74,35 @@ function buildFileTree(files: File[]): FileNode[] {
   return sortFileNodes(root)
 }
 
-// Build a file tree from a flat list of paths (FSA path).
-function buildFileTreeFromPaths(paths: string[]): FileNode[] {
+// Build a file tree from flat path lists. extraDirPaths ensures empty
+// directories created by the user appear in the tree even without files.
+function buildFileTreeFromPaths(filePaths: string[], extraDirPaths: string[] = []): FileNode[] {
   const root: FileNode[] = []
 
-  for (const path of paths) {
+  function ensureDir(path: string) {
     const parts = path.split('/')
     let nodes = root
+    for (let i = 0; i < parts.length; i++) {
+      const name = parts[i]
+      const nodePath = parts.slice(0, i + 1).join('/')
+      let dir = nodes.find((n) => n.name === name && n.type === 'directory')
+      if (!dir) {
+        dir = { name, path: nodePath, type: 'directory', children: [] }
+        nodes.push(dir)
+      }
+      nodes = dir.children!
+    }
+  }
 
+  for (const dirPath of extraDirPaths) ensureDir(dirPath)
+
+  for (const path of filePaths) {
+    const parts = path.split('/')
+    let nodes = root
     for (let i = 0; i < parts.length; i++) {
       const name = parts[i]
       const nodePath = parts.slice(0, i + 1).join('/')
       const isLast = i === parts.length - 1
-
       if (isLast) {
         nodes.push({ name, path: nodePath, type: 'file' })
       } else {
@@ -105,22 +127,31 @@ export function IDE() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
-  // Stores text content of every file in the current folder: path → content
+  // path → text content for all files in the current project
   const contentMapRef = useRef<Map<string, string>>(new Map())
-  // Holds the FSA directory handle when a folder was opened via showDirectoryPicker.
-  // Null when using the fallback <input webkitdirectory> (no write-back possible).
+  // explicitly created empty directories (not derivable from contentMapRef)
+  const emptyDirsRef = useRef<Set<string>>(new Set())
+  // FSA handle — present only when opened via showDirectoryPicker
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null)
+  // current Python working directory inside MEMFS
+  const cwdRef = useRef<string>('/project')
 
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
-  // The editor content at the time the active file was last loaded or saved.
-  // Used to determine whether there are unsaved changes.
   const [lastSavedCode, setLastSavedCode] = useState<string | null>(null)
 
-  // webkitdirectory isn't in React's type defs — set via DOM after mount
   useEffect(() => {
     folderInputRef.current?.setAttribute('webkitdirectory', '')
   }, [])
+
+  function refreshFileTree() {
+    setFileTree(
+      buildFileTreeFromPaths(
+        Array.from(contentMapRef.current.keys()),
+        Array.from(emptyDirsRef.current),
+      ),
+    )
+  }
 
   const handleRun = useCallback(() => {
     runCode(code)
@@ -135,24 +166,24 @@ export function IDE() {
       try {
         const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
         dirHandleRef.current = handle
+        emptyDirsRef.current = new Set()
 
         const contents = await readDirectory(handle)
         contentMapRef.current = contents
 
+        const cwd = `/project/${handle.name}`
+        cwdRef.current = cwd
+
         setFileTree(buildFileTreeFromPaths(Array.from(contents.keys())))
         setActiveFilePath(null)
         setLastSavedCode(null)
-
-        const cwd = `/project/${handle.name}`
         mountFiles(contents, cwd)
       } catch (err) {
-        // AbortError = user cancelled the picker — silently ignore
         if (err instanceof Error && err.name !== 'AbortError') {
           console.error('Failed to open folder:', err)
         }
       }
     } else {
-      // Fallback for Firefox / Safari: read-only via <input webkitdirectory>
       folderInputRef.current?.click()
     }
   }, [mountFiles])
@@ -161,35 +192,29 @@ export function IDE() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (!file) return
-
       file.text().then((text) => {
         setCode(text)
-
-        // Write the single file into Pyodide's MEMFS so open() calls work
         const contents = new Map([[file.name, text]])
         mountFiles(contents, '/project')
       })
-
       e.target.value = ''
     },
     [mountFiles],
   )
 
-  // Fallback folder handler used when FSA is not supported.
   const handleFolderChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? [])
       if (files.length === 0) return
 
       dirHandleRef.current = null
+      emptyDirsRef.current = new Set()
       setLastSavedCode(null)
 
       const visibleFiles = files.filter(
         (f) => !f.webkitRelativePath.split('/').some((p) => p.startsWith('.')),
       )
 
-      // Use allSettled so a single unreadable file (locked, binary, special)
-      // doesn't abort the entire import.
       const results = await Promise.allSettled(
         visibleFiles.map(async (f) => [f.webkitRelativePath, await f.text()] as const),
       )
@@ -200,13 +225,13 @@ export function IDE() {
       const contentMap = new Map(entries)
       contentMapRef.current = contentMap
 
-      setFileTree(buildFileTree(files))
-      setActiveFilePath(null)
-
       const firstPath = visibleFiles[0]?.webkitRelativePath ?? ''
       const rootFolder = firstPath.split('/')[0]
       const cwd = rootFolder ? `/project/${rootFolder}` : '/project'
+      cwdRef.current = cwd
 
+      setFileTree(buildFileTree(files))
+      setActiveFilePath(null)
       mountFiles(contentMap, cwd)
 
       e.target.value = ''
@@ -225,9 +250,6 @@ export function IDE() {
   const handleSave = useCallback(async () => {
     const handle = dirHandleRef.current
     if (!handle || !activeFilePath) return
-
-    // Strip the directory name prefix to get the path relative to the handle.
-    // e.g. "myproject/src/main.py" with handle.name="myproject" → "src/main.py"
     const relPath = activeFilePath.slice(handle.name.length + 1)
     try {
       await writeToDirectory(handle, relPath, code)
@@ -238,18 +260,165 @@ export function IDE() {
     }
   }, [activeFilePath, code])
 
-  // A file has unsaved changes when the editor content differs from what was last loaded/saved.
+  // ── File operations ────────────────────────────────────────────────────────
+
+  const handleCreateFile = useCallback(
+    async (parentPath: string, name: string) => {
+      const filePath = `${parentPath}/${name}`
+      if (contentMapRef.current.has(filePath)) return // already exists
+      contentMapRef.current.set(filePath, '')
+      emptyDirsRef.current.delete(parentPath) // no longer empty
+      refreshFileTree()
+      mountFiles(contentMapRef.current, cwdRef.current)
+      if (dirHandleRef.current) {
+        const relPath = filePath.slice(dirHandleRef.current.name.length + 1)
+        await writeToDirectory(dirHandleRef.current, relPath, '').catch(console.error)
+      }
+      // Select the new file for immediate editing
+      setCode('')
+      setActiveFilePath(filePath)
+      setLastSavedCode('')
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mountFiles],
+  )
+
+  const handleCreateFolder = useCallback(
+    async (parentPath: string, name: string) => {
+      const dirPath = `${parentPath}/${name}`
+      emptyDirsRef.current.add(dirPath)
+      refreshFileTree()
+      if (dirHandleRef.current) {
+        const relPath = dirPath.slice(dirHandleRef.current.name.length + 1)
+        await createDirectoryInDirectory(dirHandleRef.current, relPath).catch(console.error)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  const handleRename = useCallback(
+    async (path: string, newName: string) => {
+      const isFile = contentMapRef.current.has(path)
+      const parent = path.slice(0, path.lastIndexOf('/'))
+      const newPath = `${parent}/${newName}`
+
+      if (isFile) {
+        const content = contentMapRef.current.get(path)!
+        contentMapRef.current.delete(path)
+        contentMapRef.current.set(newPath, content)
+        if (activeFilePath === path) {
+          setActiveFilePath(newPath)
+          setLastSavedCode(content)
+        }
+        if (dirHandleRef.current) {
+          const h = dirHandleRef.current
+          const oldRel = path.slice(h.name.length + 1)
+          const newRel = newPath.slice(h.name.length + 1)
+          await writeToDirectory(h, newRel, content).catch(console.error)
+          await deleteFromDirectory(h, oldRel).catch(console.error)
+        }
+      } else {
+        // Directory: remap all files and sub-dirs
+        const snapshot = Array.from(contentMapRef.current.entries())
+        for (const [filePath, content] of snapshot) {
+          if (filePath.startsWith(path + '/')) {
+            contentMapRef.current.delete(filePath)
+            contentMapRef.current.set(newPath + filePath.slice(path.length), content)
+          }
+        }
+        for (const dirPath of Array.from(emptyDirsRef.current)) {
+          if (dirPath === path || dirPath.startsWith(path + '/')) {
+            emptyDirsRef.current.delete(dirPath)
+            emptyDirsRef.current.add(newPath + dirPath.slice(path.length))
+          }
+        }
+        if (activeFilePath?.startsWith(path + '/')) {
+          setActiveFilePath(newPath + activeFilePath.slice(path.length))
+        }
+        if (dirHandleRef.current) {
+          const h = dirHandleRef.current
+          // Write all files at new paths first, then remove old dir
+          for (const [filePath, content] of contentMapRef.current) {
+            if (filePath.startsWith(newPath + '/')) {
+              await writeToDirectory(h, filePath.slice(h.name.length + 1), content).catch(console.error)
+            }
+          }
+          await deleteFromDirectory(h, path.slice(h.name.length + 1)).catch(console.error)
+        }
+        // Update cwdRef if it was inside the renamed dir
+        if (cwdRef.current.startsWith(`/project/${path}`)) {
+          cwdRef.current = `/project/${newPath}${cwdRef.current.slice(`/project/${path}`.length)}`
+        }
+      }
+
+      refreshFileTree()
+      mountFiles(contentMapRef.current, cwdRef.current)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeFilePath, mountFiles],
+  )
+
+  const handleDelete = useCallback(
+    async (path: string) => {
+      const isFile = contentMapRef.current.has(path)
+
+      if (isFile) {
+        contentMapRef.current.delete(path)
+        if (activeFilePath === path) {
+          setActiveFilePath(null)
+          setLastSavedCode(null)
+          setCode(DEFAULT_CODE)
+        }
+      } else {
+        for (const filePath of Array.from(contentMapRef.current.keys())) {
+          if (filePath.startsWith(path + '/')) contentMapRef.current.delete(filePath)
+        }
+        for (const dirPath of Array.from(emptyDirsRef.current)) {
+          if (dirPath === path || dirPath.startsWith(path + '/')) {
+            emptyDirsRef.current.delete(dirPath)
+          }
+        }
+        if (activeFilePath === path || activeFilePath?.startsWith(path + '/')) {
+          setActiveFilePath(null)
+          setLastSavedCode(null)
+          setCode(DEFAULT_CODE)
+        }
+      }
+
+      refreshFileTree()
+      mountFiles(contentMapRef.current, cwdRef.current)
+      if (dirHandleRef.current) {
+        const relPath = path.slice(dirHandleRef.current.name.length + 1)
+        await deleteFromDirectory(dirHandleRef.current, relPath).catch(console.error)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeFilePath, mountFiles],
+  )
+
+  // ── Derived state ──────────────────────────────────────────────────────────
+
   const canSave =
     dirHandleRef.current !== null &&
     activeFilePath !== null &&
     lastSavedCode !== null &&
     code !== lastSavedCode
 
+  const onSave = dirHandleRef.current !== null ? handleSave : undefined
+
+  const fileOps =
+    fileTree.length > 0
+      ? {
+          onCreateFile: handleCreateFile,
+          onCreateFolder: handleCreateFolder,
+          onRename: handleRename,
+          onDelete: handleDelete,
+        }
+      : undefined
+
   useKeyboardShortcut({ key: 'Enter', metaOrCtrl: true }, handleRun)
   useKeyboardShortcut({ key: 's', metaOrCtrl: true }, handleSave)
-
-  // Only pass onSave when a folder was opened via FSA (write-back is available).
-  const onSave = dirHandleRef.current !== null ? handleSave : undefined
 
   return (
     <div className={styles.ide}>
@@ -287,6 +456,7 @@ export function IDE() {
             activeFilePath={activeFilePath}
             onFileSelect={handleFileSelect}
             onOpenFolder={handleOpenFolderClick}
+            ops={fileOps}
           />
         </Panel>
 
