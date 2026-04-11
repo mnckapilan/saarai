@@ -121,7 +121,7 @@ function buildFileTreeFromPaths(filePaths: string[], extraDirPaths: string[] = [
 
 export function IDE() {
   const [code, setCode] = useState(DEFAULT_CODE)
-  const { status, output, runCode, clearOutput, mountFiles } = usePyodide()
+  const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -161,8 +161,14 @@ export function IDE() {
   }
 
   const handleRun = useCallback(() => {
-    runCode(code)
-  }, [code, runCode])
+    // Pass the MEMFS directory of the active file so runCode can add it to
+    // sys.path[0], mirroring `python script.py` behaviour. Without this,
+    // imports of sibling modules fail when the active file is in a subdirectory.
+    const scriptDir = activeFilePath
+      ? `/project/${activeFilePath.slice(0, activeFilePath.lastIndexOf('/'))}`
+      : undefined
+    runCode(code, scriptDir)
+  }, [code, runCode, activeFilePath])
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click()
@@ -265,12 +271,14 @@ export function IDE() {
       await writeToDirectory(handle, relPath, code)
       contentMapRef.current.set(activeFilePath, code)
       setLastSavedCode(code)
+      // Keep MEMFS in sync so the next run sees the saved content.
+      patchFile(`/project/${activeFilePath}`, code)
       return true
     } catch (err) {
       console.error('Failed to save file:', err)
       return false
     }
-  }, [activeFilePath, code])
+  }, [activeFilePath, code, patchFile])
 
   const handleManualSave = useCallback(async () => {
     if (await handleSave()) setLastSaveType('manual')
