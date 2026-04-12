@@ -12,14 +12,18 @@ interface SettingsModalProps {
   onBracketColorizationToggle: () => void
 }
 
-function SettingRow({ label, checked, onChange }: {
+function SettingRow({ label, description, checked, onChange }: {
   label: string
+  description: string
   checked: boolean
   onChange: () => void
 }) {
   return (
     <div className={styles.row}>
-      <span className={styles.rowLabel}>{label}</span>
+      <div className={styles.rowText}>
+        <span className={styles.rowLabel}>{label}</span>
+        <span className={styles.rowDescription}>{description}</span>
+      </div>
       <button
         role="switch"
         aria-checked={checked}
@@ -56,18 +60,21 @@ export function SettingsModal({
         <div className={styles.rows}>
           <SettingRow
             label="Light mode"
+            description="Switch to a light colour theme"
             checked={theme === 'light'}
             onChange={onThemeToggle}
           />
           {onAutosaveToggle && (
             <SettingRow
               label="Autosave"
+              description="Save changes automatically every 5 seconds"
               checked={!!autosaveEnabled}
               onChange={onAutosaveToggle}
             />
           )}
           <SettingRow
             label="Bracket colors"
+            description="Colorize matching brackets in the editor"
             checked={bracketColorization}
             onChange={onBracketColorizationToggle}
           />
