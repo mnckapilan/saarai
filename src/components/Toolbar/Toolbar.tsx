@@ -34,6 +34,16 @@ interface ToolbarProps {
   onAbout: () => void
 }
 
+function InfoIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+      <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M7.5 6.5v4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="7.5" cy="4.5" r="0.85" fill="currentColor" />
+    </svg>
+  )
+}
+
 function SunIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -201,6 +211,7 @@ export function Toolbar({
   const fsaOpen = !!onSave
 
   const [showSaved, setShowSaved] = useState(false)
+  const [themeAnimating, setThemeAnimating] = useState(false)
   useEffect(() => {
     if (saveStatus !== 'autosaved') return
     setShowSaved(true)
@@ -221,7 +232,7 @@ export function Toolbar({
           title="About Saarai"
           aria-label="About Saarai"
         >
-          ℹ
+          <InfoIcon />
         </button>
         <div className={styles.dividerV} aria-hidden="true" />
         <FileMenu onImport={onImport} onOpenFolder={onOpenFolder} />
@@ -276,8 +287,9 @@ export function Toolbar({
         <FontMenu font={font} onFontChange={onFontChange} />
         <FontSizeControl size={fontSize} onChange={onFontSizeChange} />
         <button
-          className={styles.themeButton}
-          onClick={onThemeToggle}
+          className={`${styles.themeButton} ${themeAnimating ? styles.themeButtonAnimating : ''}`}
+          onClick={() => { setThemeAnimating(true); onThemeToggle() }}
+          onAnimationEnd={() => setThemeAnimating(false)}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
