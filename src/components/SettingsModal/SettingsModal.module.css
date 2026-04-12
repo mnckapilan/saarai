@@ -1,0 +1,94 @@
+.dialog {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  width: 300px;
+  padding: 0;
+  box-shadow: var(--shadow-modal);
+  margin: auto;
+}
+
+.dialog::backdrop {
+  background: var(--color-backdrop);
+  backdrop-filter: blur(2px);
+}
+
+.content {
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowLabel {
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+/* ── Toggle switch ───────────────────────────────────────────────────────── */
+
+.toggle {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle:hover {
+  border-color: var(--color-text-muted);
+}
+
+.toggleOn {
+  background: var(--color-toggle-on);
+  border-color: var(--color-toggle-on);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(12px);
+  background: var(--color-on-accent);
+}

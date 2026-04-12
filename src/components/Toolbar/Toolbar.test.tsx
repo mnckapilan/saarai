@@ -16,17 +16,13 @@ function renderToolbar(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
     onFontSizeChange: vi.fn(),
     theme: 'dark' as const,
     onThemeToggle: vi.fn(),
-    bracketColorization: true,
-    onBracketColorizationToggle: vi.fn(),
+    onOpenSettings: vi.fn(),
     onAbout: vi.fn(),
     ...overrides,
   }
   return { ...render(<Toolbar {...props} />), props }
 }
 
-async function openSettings() {
-  await userEvent.click(screen.getByRole('button', { name: /Settings/i }))
-}
 
 describe('Toolbar — runtime status', () => {
   it('shows Ready when status is ready', () => {
@@ -133,40 +129,11 @@ describe('Toolbar — save status indicator', () => {
   })
 })
 
-describe('Toolbar — settings popup', () => {
-  it('is closed by default', () => {
-    renderToolbar()
-    expect(screen.queryByText('Light mode')).not.toBeInTheDocument()
-  })
-
-  it('opens on settings button click', async () => {
-    renderToolbar()
-    await openSettings()
-    expect(screen.getByText('Light mode')).toBeInTheDocument()
-    expect(screen.getByText('Bracket colors')).toBeInTheDocument()
-  })
-
-  it('autosave row is absent when onAutosaveToggle is not provided', async () => {
-    renderToolbar()
-    await openSettings()
-    expect(screen.queryByText('Autosave')).not.toBeInTheDocument()
-  })
-
-  it('autosave row is present when onAutosaveToggle is provided', async () => {
-    renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: true })
-    await openSettings()
-    expect(screen.getByText('Autosave')).toBeInTheDocument()
-  })
-
-  it('autosave switch reflects enabled state', async () => {
-    renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: false })
-    await openSettings()
-    expect(screen.getByRole('switch', { name: /Autosave/i })).toHaveAttribute('aria-checked', 'false')
-  })
-
-  it('bracket colors switch reflects state', async () => {
-    renderToolbar({ bracketColorization: false })
-    await openSettings()
-    expect(screen.getByRole('switch', { name: /Bracket colors/i })).toHaveAttribute('aria-checked', 'false')
+describe('Toolbar — settings button', () => {
+  it('calls onOpenSettings when the settings button is clicked', async () => {
+    const onOpenSettings = vi.fn()
+    renderToolbar({ onOpenSettings })
+    await userEvent.click(screen.getByRole('button', { name: /Settings/i }))
+    expect(onOpenSettings).toHaveBeenCalledOnce()
   })
 })

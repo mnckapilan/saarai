@@ -5,6 +5,7 @@ import { FileTree } from '../FileTree/FileTree'
 import { OutputPanel } from '../OutputPanel/OutputPanel'
 import { Toolbar } from '../Toolbar/Toolbar'
 import { WelcomeModal } from '../WelcomeModal/WelcomeModal'
+import { SettingsModal } from '../SettingsModal/SettingsModal'
 import { usePyodide } from '../../hooks/usePyodide'
 import { useFont } from '../../hooks/useFont'
 import { useFontSize } from '../../hooks/useFontSize'
@@ -118,6 +119,7 @@ export function IDE() {
   const [showWelcome, setShowWelcome] = useState(
     () => !sessionStorage.getItem(WELCOME_SEEN_KEY),
   )
+  const [showSettings, setShowSettings] = useState(false)
   const [hasEditorSelection, setHasEditorSelection] = useState(false)
   const [cursorPosition, setCursorPosition] = useState<{ line: number; col: number } | null>(null)
 
@@ -555,8 +557,6 @@ export function IDE() {
         onSave={onSave}
         canSave={canSave}
         onReload={onReload}
-        autosaveEnabled={autosaveEnabled}
-        onAutosaveToggle={onAutosaveToggle}
         saveStatus={saveStatus}
         font={font}
         onFontChange={setFont}
@@ -564,15 +564,25 @@ export function IDE() {
         onFontSizeChange={setFontSize}
         theme={theme}
         onThemeToggle={toggleTheme}
-        bracketColorization={bracketColorization}
-        onBracketColorizationToggle={() => {
-          setBracketColorization((v) => {
-            localStorage.setItem('saarai:bracketColorization', String(!v))
-            return !v
-          })
-        }}
+        onOpenSettings={() => setShowSettings(true)}
         onAbout={() => setShowWelcome(true)}
       />
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          theme={theme}
+          onThemeToggle={toggleTheme}
+          autosaveEnabled={autosaveEnabled}
+          onAutosaveToggle={onAutosaveToggle}
+          bracketColorization={bracketColorization}
+          onBracketColorizationToggle={() => {
+            setBracketColorization((v) => {
+              localStorage.setItem('saarai:bracketColorization', String(!v))
+              return !v
+            })
+          }}
+        />
+      )}
 
       <PanelGroup direction="horizontal" className={styles.panelGroup}>
         <Panel defaultSize={20} minSize={12} maxSize={45} className={styles.panel}>

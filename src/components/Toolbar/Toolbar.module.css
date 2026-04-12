@@ -176,59 +176,6 @@
   color: var(--color-warning) !important;
 }
 
-/* ── Autosave toggle switch ──────────────────────────────────────────────── */
-
-.autosaveLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  cursor: pointer;
-  user-select: none;
-}
-
-.autosaveLabelText {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  font-family: var(--font-ui);
-}
-
-.toggle {
-  position: relative;
-  width: 28px;
-  height: 16px;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.2s, border-color 0.2s;
-  flex-shrink: 0;
-}
-
-.toggle:hover {
-  border-color: var(--color-text-muted);
-}
-
-.toggleOn {
-  background: var(--color-toggle-on);
-  border-color: var(--color-toggle-on);
-}
-
-.toggleThumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  background: var(--color-text-muted);
-  border-radius: 50%;
-  transition: transform 0.2s, background 0.2s;
-}
-
-.toggleOn .toggleThumb {
-  transform: translateX(12px);
-  background: var(--color-on-accent);
-}
 
 /* ── Save status indicators ──────────────────────────────────────────────── */
 
@@ -364,31 +311,6 @@
   cursor: not-allowed;
 }
 
-/* ── Settings popup ──────────────────────────────────────────────────────── */
-
-.settingsPopup {
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.settingRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-lg);
-  padding: 5px var(--spacing-sm);
-  border-radius: var(--radius-sm);
-}
-
-.settingLabel {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-}
-
 /* ── Theme toggle button ─────────────────────────────────────────────────── */
 
 @keyframes themeSpin {
@@ -412,8 +334,7 @@
   flex-shrink: 0;
 }
 
-.themeButton:hover,
-.themeButtonOpen {
+.themeButton:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-secondary);
 }
