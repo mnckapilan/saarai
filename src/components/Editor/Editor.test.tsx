@@ -53,12 +53,13 @@ function renderEditor(overrides: Partial<Parameters<typeof Editor>[0]> = {}) {
     onChange: vi.fn(),
     onRun: vi.fn(),
     monacoTheme: 'vs-dark' as const,
+    bracketColorization: true,
     fontFamily: 'monospace',
     fontLigatures: false,
     fontSize: 14,
     ...overrides,
   }
-  return { ...render(<Editor {...props} />), props }
+  return { ...render(<Editor {...props as Parameters<typeof Editor>[0]} />), props }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

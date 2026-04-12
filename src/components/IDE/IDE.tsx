@@ -142,7 +142,10 @@ export function IDE() {
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
   const [lastSavedCode, setLastSavedCode] = useState<string | null>(null)
-  const [autosaveEnabled, setAutosaveEnabled] = useState(false)
+  const [autosaveEnabled, setAutosaveEnabled] = useState(true)
+  const [bracketColorization, setBracketColorization] = useState(
+    () => localStorage.getItem('saarai:bracketColorization') !== 'false',
+  )
   // 'auto' → last save was triggered by autosave; 'manual' → user-initiated; null → no save yet / file just loaded
   const [lastSaveType, setLastSaveType] = useState<'auto' | 'manual' | null>(null)
 
@@ -561,6 +564,13 @@ export function IDE() {
         onFontSizeChange={setFontSize}
         theme={theme}
         onThemeToggle={toggleTheme}
+        bracketColorization={bracketColorization}
+        onBracketColorizationToggle={() => {
+          setBracketColorization((v) => {
+            localStorage.setItem('saarai:bracketColorization', String(!v))
+            return !v
+          })
+        }}
         onAbout={() => setShowWelcome(true)}
       />
 
@@ -595,6 +605,7 @@ export function IDE() {
                       onSelectionChange={setHasEditorSelection}
                       onCursorPositionChange={(line, col) => setCursorPosition({ line, col })}
                       monacoTheme={theme === 'dark' ? 'vs-dark' : 'vs'}
+                      bracketColorization={bracketColorization}
                       fontFamily={font.value}
                       fontLigatures={font.ligatures}
                       fontSize={fontSize}

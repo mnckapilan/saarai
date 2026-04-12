@@ -31,6 +31,8 @@ interface ToolbarProps {
   onFontSizeChange: (size: number) => void
   theme: Theme
   onThemeToggle: () => void
+  bracketColorization: boolean
+  onBracketColorizationToggle: () => void
   onAbout: () => void
 }
 
@@ -174,6 +176,70 @@ function FontMenu({ font, onFontChange }: { font: FontOption; onFontChange: (f: 
   )
 }
 
+function SettingsIcon() {
+  return (
+    <svg width="14" height="13" viewBox="0 0 14 13" fill="none" aria-hidden="true">
+      <path d="M1 2h7.5M11.5 2H13M1 6.5H2M5 6.5h8M1 11h5M8 11h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="10" cy="2" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="3.5" cy="6.5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="6.5" cy="11" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function SettingRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <div className={styles.settingRow}>
+      <span className={styles.settingLabel}>{label}</span>
+      <button
+        role="switch"
+        aria-checked={checked}
+        aria-label={`${label} ${checked ? 'on, click to disable' : 'off, click to enable'}`}
+        className={`${styles.toggle} ${checked ? styles.toggleOn : ''}`}
+        onClick={onChange}
+      >
+        <span className={styles.toggleThumb} />
+      </button>
+    </div>
+  )
+}
+
+function SettingsMenu({
+  theme, onThemeToggle, autosaveEnabled, onAutosaveToggle, bracketColorization, onBracketColorizationToggle,
+}: {
+  theme: Theme
+  onThemeToggle: () => void
+  autosaveEnabled?: boolean
+  onAutosaveToggle?: () => void
+  bracketColorization: boolean
+  onBracketColorizationToggle: () => void
+}) {
+  const { open, setOpen, ref } = useDropdown()
+
+  return (
+    <div ref={ref} className={styles.menuRoot}>
+      <button
+        className={`${styles.themeButton} ${open ? styles.themeButtonOpen : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        title="Settings"
+        aria-label="Settings"
+        aria-expanded={open}
+      >
+        <SettingsIcon />
+      </button>
+      {open && (
+        <div className={`${styles.settingsPopup} ${styles.menuPopupRight}`}>
+          <SettingRow label="Light mode" checked={theme === 'light'} onChange={onThemeToggle} />
+          {onAutosaveToggle && (
+            <SettingRow label="Autosave" checked={!!autosaveEnabled} onChange={onAutosaveToggle} />
+          )}
+          <SettingRow label="Bracket colors" checked={bracketColorization} onChange={onBracketColorizationToggle} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FontSizeControl({ size, onChange }: { size: number; onChange: (n: number) => void }) {
   return (
     <div className={styles.fontSizeControl}>
@@ -202,7 +268,7 @@ export function Toolbar({
   status, onRun, fileOpen = false, hasEditorSelection = false,
   onImport, onOpenFolder, onSave, canSave, onReload,
   autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, fontSize, onFontSizeChange,
-  theme, onThemeToggle, onAbout,
+  theme, onThemeToggle, bracketColorization, onBracketColorizationToggle, onAbout,
 }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
@@ -261,23 +327,6 @@ export function Toolbar({
                 Reload
               </button>
             )}
-            {onAutosaveToggle && (
-              <label
-                className={styles.autosaveLabel}
-                title={autosaveEnabled ? 'Autosave is on — click to disable' : 'Click to enable autosave'}
-              >
-                <span className={styles.autosaveLabelText}>Autosave</span>
-                <button
-                  role="switch"
-                  aria-checked={autosaveEnabled}
-                  aria-label={autosaveEnabled ? 'Disable autosave' : 'Enable autosave'}
-                  className={`${styles.toggle} ${autosaveEnabled ? styles.toggleOn : ''}`}
-                  onClick={onAutosaveToggle}
-                >
-                  <span className={styles.toggleThumb} />
-                </button>
-              </label>
-            )}
           </>
         )}
       </div>
@@ -295,6 +344,14 @@ export function Toolbar({
         >
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
+        <SettingsMenu
+          theme={theme}
+          onThemeToggle={onThemeToggle}
+          autosaveEnabled={autosaveEnabled}
+          onAutosaveToggle={onAutosaveToggle}
+          bracketColorization={bracketColorization}
+          onBracketColorizationToggle={onBracketColorizationToggle}
+        />
         <div className={styles.dividerV} aria-hidden="true" />
         <div className={styles.status} aria-live="polite">
           {isLoading && (

@@ -68,10 +68,11 @@ interface EditorProps {
   fontFamily: string
   fontLigatures: boolean
   fontSize: number
+  bracketColorization: boolean
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, monacoTheme, fontFamily, fontLigatures, fontSize },
+  { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, monacoTheme, fontFamily, fontLigatures, fontSize, bracketColorization },
   ref,
 ) {
   const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
@@ -99,8 +100,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [editorValue, setEditorValue] = useState(value)
 
   const options = useMemo<MonacoOptions>(
-    () => ({ ...BASE_EDITOR_OPTIONS, fontFamily, fontLigatures, fontSize }),
-    [fontFamily, fontLigatures, fontSize],
+    () => ({ ...BASE_EDITOR_OPTIONS, fontFamily, fontLigatures, fontSize, bracketPairColorization: { enabled: bracketColorization } }),
+    [fontFamily, fontLigatures, fontSize, bracketColorization],
   )
 
   function activateModel(
