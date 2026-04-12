@@ -542,7 +542,7 @@ export function IDE() {
       <Toolbar
         status={status}
         onRun={handleRun}
-        fileOpen={activeFilePath !== null}
+        fileOpen={activeFilePath !== null && activeFilePath.endsWith('.py')}
         hasEditorSelection={hasEditorSelection}
         onImport={handleImportClick}
         onOpenFolder={handleOpenFolderClick}
