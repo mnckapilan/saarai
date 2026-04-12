@@ -9,6 +9,15 @@ export default defineConfig({
     // Pyodide uses its own module loading system and must not be pre-bundled
     exclude: ['pyodide'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          monaco: ['monaco-editor'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

@@ -1,16 +1,23 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import MonacoEditor, { type OnMount, type Monaco } from '@monaco-editor/react'
 import { loader } from '@monaco-editor/react'
-import type * as MonacoTypes from 'monaco-editor'
+import * as monacoEditor from 'monaco-editor'
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import styles from './Editor.module.css'
 
-// Load Monaco from CDN — keeps the npm bundle lean and avoids
-// the complex worker setup required when bundling Monaco with Vite.
-loader.config({
-  paths: {
-    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs',
+// Wire Monaco's web worker. We only need the base editor worker since
+// Python has no built-in Monaco language server.
+window.MonacoEnvironment = {
+  getWorker() {
+    return new EditorWorker()
   },
-})
+}
+
+// Use the locally installed monaco-editor instead of loading from CDN.
+loader.config({ monaco: monacoEditor })
+
+// Expose Monaco globally so devtools and tests can inspect editor state.
+;(window as unknown as { monaco: typeof monacoEditor }).monaco = monacoEditor
 
 type MonacoOptions = React.ComponentProps<typeof MonacoEditor>['options']
 
@@ -75,12 +82,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, monacoTheme, fontFamily, fontLigatures, fontSize, bracketColorization },
   ref,
 ) {
-  const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
-  const modelsRef = useRef<Map<string, MonacoTypes.editor.ITextModel>>(new Map())
-  const viewStatesRef = useRef<Map<string, MonacoTypes.editor.ICodeEditorViewState>>(new Map())
+  const modelsRef = useRef<Map<string, monacoEditor.editor.ITextModel>>(new Map())
+  const viewStatesRef = useRef<Map<string, monacoEditor.editor.ICodeEditorViewState>>(new Map())
   const activePathRef = useRef<string | null>(null)
-  const changeSubRef = useRef<MonacoTypes.IDisposable | null>(null)
+  const changeSubRef = useRef<monacoEditor.IDisposable | null>(null)
 
   // Stable refs so that callbacks registered once (e.g. in handleMount) always
   // call the latest versions without needing to re-register.
@@ -105,7 +112,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   function activateModel(
-    editor: MonacoTypes.editor.IStandaloneCodeEditor,
+    editor: monacoEditor.editor.IStandaloneCodeEditor,
     monaco: Monaco,
     path: string,
     initialContent: string,
