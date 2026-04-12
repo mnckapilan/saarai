@@ -7,6 +7,7 @@ import { Toolbar } from '../Toolbar/Toolbar'
 import { WelcomeModal } from '../WelcomeModal/WelcomeModal'
 import { usePyodide } from '../../hooks/usePyodide'
 import { useFont } from '../../hooks/useFont'
+import { useFontSize } from '../../hooks/useFontSize'
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut'
 import {
   fsaSupported,
@@ -111,6 +112,7 @@ export function IDE() {
   const [code, setCode] = useState('')
   const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
+  const { fontSize, setFontSize } = useFontSize()
   const [showWelcome, setShowWelcome] = useState(
     () => !sessionStorage.getItem(WELCOME_SEEN_KEY),
   )
@@ -548,6 +550,8 @@ export function IDE() {
         saveStatus={saveStatus}
         font={font}
         onFontChange={setFont}
+        fontSize={fontSize}
+        onFontSizeChange={setFontSize}
         onAbout={() => setShowWelcome(true)}
       />
 
@@ -578,6 +582,7 @@ export function IDE() {
                   onRun={handleRun}
                   fontFamily={font.value}
                   fontLigatures={font.ligatures}
+                  fontSize={fontSize}
                 />
               ) : (
                 <div className={styles.noFile}>

@@ -1,20 +1,37 @@
 .toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   height: var(--toolbar-height);
-  padding: 0 var(--spacing-lg);
+  padding: 0 var(--spacing-md);
   background: var(--color-bg-toolbar);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   user-select: none;
 }
 
+/* ── Zones ───────────────────────────────────────────────────────────────── */
+
 .left {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
 }
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* ── Brand ───────────────────────────────────────────────────────────────── */
 
 .logo {
   font-size: 18px;
@@ -28,23 +45,252 @@
   letter-spacing: 0.3px;
 }
 
-.right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
+/* ── Vertical divider ────────────────────────────────────────────────────── */
+
+.dividerV {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  flex-shrink: 0;
 }
 
-/* Status indicator */
+/* ── Dropdown menus ──────────────────────────────────────────────────────── */
+
+.menuRoot {
+  position: relative;
+}
+
+.menuTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 var(--spacing-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.menuTrigger:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.menuTriggerOpen {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border);
+}
+
+.menuPopup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 160px;
+  background: var(--color-bg-toolbar);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  padding: var(--spacing-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Align popup to the right edge of its trigger (for right-zone dropdowns) */
+.menuPopupRight {
+  left: auto;
+  right: 0;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px var(--spacing-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+
+.menuItem:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.menuItemActive {
+  color: var(--color-success);
+}
+
+.menuItemActive:hover {
+  color: #fff;
+}
+
+/* ── Save button ─────────────────────────────────────────────────────────── */
+
+.saveButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 var(--spacing-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.saveButton:hover:not(:disabled) {
+  color: var(--color-accent);
+  background: var(--color-bg-secondary);
+}
+
+.saveButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Autosave toggle switch ──────────────────────────────────────────────── */
+
+.autosaveLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  user-select: none;
+}
+
+.autosaveLabelText {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+}
+
+.toggle {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle:hover {
+  border-color: var(--color-text-muted);
+}
+
+.toggleOn {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(12px);
+  background: #fff;
+}
+
+/* ── Save status indicators ──────────────────────────────────────────────── */
+
+.saveStatusUnsaved {
+  font-size: 12px;
+  color: var(--color-warning);
+  white-space: nowrap;
+}
+
+.saveStatusAutosaved {
+  font-size: 12px;
+  color: var(--color-success);
+  white-space: nowrap;
+}
+
+/* ── Font size control ───────────────────────────────────────────────────── */
+
+.fontSizeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+}
+
+.fontSizeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.fontSizeBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-toolbar);
+}
+
+.fontSizeValue {
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text-primary);
+  min-width: 22px;
+  text-align: center;
+  user-select: none;
+}
+
+/* ── Runtime status ──────────────────────────────────────────────────────── */
+
 .status {
   font-size: 12px;
-  min-width: 140px;
-  text-align: right;
+  min-width: 130px;
 }
 
 .statusLoading {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--spacing-xs);
   color: var(--color-info);
 }
@@ -61,11 +307,10 @@
   color: var(--color-stderr);
 }
 
-/* Spinner animation */
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .spinner {
@@ -79,149 +324,8 @@
   flex-shrink: 0;
 }
 
-/* Import button */
-.importButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 var(--spacing-md);
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-  white-space: nowrap;
-}
+/* ── Run button ──────────────────────────────────────────────────────────── */
 
-.importButton:hover {
-  border-color: var(--color-text-secondary);
-  color: var(--color-text-primary);
-}
-
-/* Save button — shown when a folder is open via the File System Access API */
-.saveButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 var(--spacing-md);
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.saveButton:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.saveButton:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-/* Autosave toggle — active state */
-.autosaveOn {
-  color: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.autosaveOn:hover {
-  color: var(--color-success);
-  border-color: var(--color-success);
-  opacity: 0.85;
-}
-
-/* Save status indicators */
-.saveStatusUnsaved {
-  font-size: 12px;
-  color: var(--color-warning);
-  white-space: nowrap;
-}
-
-.saveStatusAutosaved {
-  font-size: 12px;
-  color: var(--color-success);
-  white-space: nowrap;
-}
-
-/* Info / About button */
-.infoButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-ui);
-  font-size: 14px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  flex-shrink: 0;
-}
-
-.infoButton:hover {
-  color: var(--color-text-secondary);
-  border-color: var(--color-border);
-}
-
-/* Font selector */
-.fontLabel {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  user-select: none;
-}
-
-.fontSelect {
-  height: 28px;
-  padding: 0 24px 0 var(--spacing-sm);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  /* Custom chevron */
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23858585' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  transition: border-color 0.15s;
-  max-width: 160px;
-}
-
-.fontSelect:hover {
-  border-color: var(--color-text-secondary);
-}
-
-.fontSelect:focus {
-  border-color: var(--color-accent);
-}
-
-/* Thin vertical separator */
-.divider {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border);
-  flex-shrink: 0;
-}
-
-/* Run button */
 .runButton {
   display: inline-flex;
   align-items: center;
@@ -250,4 +354,29 @@
 .runButton:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* ── Info / About button ─────────────────────────────────────────────────── */
+
+.infoButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.infoButton:hover {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
 }
