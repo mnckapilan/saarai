@@ -52,6 +52,7 @@ function renderEditor(overrides: Partial<Parameters<typeof Editor>[0]> = {}) {
     value: '',
     onChange: vi.fn(),
     onRun: vi.fn(),
+    monacoTheme: 'vs-dark' as const,
     fontFamily: 'monospace',
     fontLigatures: false,
     fontSize: 14,

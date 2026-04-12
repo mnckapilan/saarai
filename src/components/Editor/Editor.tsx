@@ -64,13 +64,14 @@ interface EditorProps {
   onRun: () => void
   onSelectionChange?: (hasSelection: boolean) => void
   onCursorPositionChange?: (line: number, col: number) => void
+  monacoTheme: 'vs-dark' | 'vs'
   fontFamily: string
   fontLigatures: boolean
   fontSize: number
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, fontFamily, fontLigatures, fontSize },
+  { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, monacoTheme, fontFamily, fontLigatures, fontSize },
   ref,
 ) {
   const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
@@ -214,7 +215,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     <div className={styles.container}>
       <MonacoEditor
         language="python"
-        theme="vs-dark"
+        theme={monacoTheme}
         value={editorValue}
         // In multi-model mode we handle onChange via the model subscription
         // above; passing it here would cause double-firing.
