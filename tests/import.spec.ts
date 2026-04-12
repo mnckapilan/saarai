@@ -5,28 +5,33 @@ import { tmpdir } from 'os'
 
 const IMPORTED_CODE = 'print("hello from imported file")\n'
 
-// Helper to get the current Monaco editor value
+// Helper to get the active Monaco editor's current value
 async function getEditorValue(page: import('@playwright/test').Page) {
-  return page.evaluate(() =>
-    (window as unknown as { monaco?: { editor?: { getModels: () => { getValue: () => string }[] } } })
-      .monaco?.editor?.getModels()[0]?.getValue(),
-  )
+  return page.evaluate(() => {
+    const monaco = (window as unknown as { monaco?: { editor?: { getEditors: () => { getModel: () => { getValue: () => string } | null }[] } } }).monaco
+    return monaco?.editor?.getEditors()[0]?.getModel()?.getValue()
+  })
 }
 
 test.describe('file import', () => {
   test.beforeEach(async ({ page }) => {
+    // Skip the welcome modal so it doesn't block tests
+    await page.addInitScript(() => {
+      sessionStorage.setItem('saarai:welcomeSeen', '1')
+    })
     await page.goto('/')
-    // Wait for Monaco to mount
-    await page.waitForSelector('.monaco-editor', { timeout: 30_000 })
+    // Wait for the toolbar to be ready
+    await page.getByRole('button', { name: 'File', exact: true }).waitFor()
   })
 
   test('Open file button triggers system file picker', async ({ page }) => {
-    const importButton = page.getByRole('button', { name: 'Import Python file' })
-    await expect(importButton).toBeVisible()
+    await page.getByRole('button', { name: 'File', exact: true }).click()
+    const openFileItem = page.getByRole('menuitem', { name: 'Open file…' })
+    await expect(openFileItem).toBeVisible()
 
     const [fileChooser] = await Promise.all([
       page.waitForEvent('filechooser'),
-      importButton.click(),
+      openFileItem.click(),
     ])
     expect(fileChooser).toBeTruthy()
     await fileChooser.setFiles([])
@@ -37,12 +42,15 @@ test.describe('file import', () => {
     writeFileSync(tmpFile, IMPORTED_CODE)
 
     try {
-      const importButton = page.getByRole('button', { name: 'Import Python file' })
+      await page.getByRole('button', { name: 'File', exact: true }).click()
       const [fileChooser] = await Promise.all([
         page.waitForEvent('filechooser'),
-        importButton.click(),
+        page.getByRole('menuitem', { name: 'Open file…' }).click(),
       ])
       await fileChooser.setFiles(tmpFile)
+
+      // Monaco mounts once a file is open
+      await page.waitForSelector('.monaco-editor', { timeout: 30_000 })
 
       await expect
         .poll(() => getEditorValue(page), { timeout: 5_000 })
@@ -59,20 +67,21 @@ test.describe('file import', () => {
     writeFileSync(file2, '# file two\n')
 
     try {
-      const importButton = page.getByRole('button', { name: 'Import Python file' })
-
+      await page.getByRole('button', { name: 'File', exact: true }).click()
       const [chooser1] = await Promise.all([
         page.waitForEvent('filechooser'),
-        importButton.click(),
+        page.getByRole('menuitem', { name: 'Open file…' }).click(),
       ])
       await chooser1.setFiles(file1)
+      await page.waitForSelector('.monaco-editor', { timeout: 30_000 })
       await expect
         .poll(() => getEditorValue(page), { timeout: 5_000 })
         .toContain('file one')
 
+      await page.getByRole('button', { name: 'File', exact: true }).click()
       const [chooser2] = await Promise.all([
         page.waitForEvent('filechooser'),
-        importButton.click(),
+        page.getByRole('menuitem', { name: 'Open file…' }).click(),
       ])
       await chooser2.setFiles(file2)
       await expect
