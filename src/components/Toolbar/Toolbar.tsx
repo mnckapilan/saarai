@@ -19,8 +19,6 @@ interface ToolbarProps {
   canSave?: boolean
   /** Re-reads all files from disk; present only when opened via FSA. */
   onReload?: () => void
-  /** Save status to display alongside the save button. */
-  saveStatus?: 'unsaved' | 'autosaved' | null
   font: FontOption
   onFontChange: (font: FontOption) => void
   fontSize: number
@@ -101,7 +99,15 @@ function useDropdown() {
   return { open, setOpen, ref }
 }
 
-function FileMenu({ onImport, onOpenFolder }: { onImport: () => void; onOpenFolder: () => void }) {
+function FileMenu({
+  onImport, onOpenFolder, onSave, canSave, onReload,
+}: {
+  onImport: () => void
+  onOpenFolder: () => void
+  onSave?: () => void
+  canSave?: boolean
+  onReload?: () => void
+}) {
   const { open, setOpen, ref } = useDropdown()
 
   return (
@@ -131,6 +137,28 @@ function FileMenu({ onImport, onOpenFolder }: { onImport: () => void; onOpenFold
           >
             Open folder…
           </button>
+          {onSave && (
+            <>
+              <div className={styles.menuDivider} role="separator" />
+              <button
+                className={`${styles.menuItem} ${!canSave ? styles.menuItemDisabled : ''}`}
+                role="menuitem"
+                disabled={!canSave}
+                onClick={() => { onSave(); setOpen(false) }}
+              >
+                Save
+              </button>
+              {onReload && (
+                <button
+                  className={styles.menuItem}
+                  role="menuitem"
+                  onClick={() => { onReload(); setOpen(false) }}
+                >
+                  Reload from disk
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -210,23 +238,15 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 export function Toolbar({
   status, onRun, fileOpen = false, hasEditorSelection = false,
   onImport, onOpenFolder, onSave, canSave, onReload,
-  saveStatus, font, onFontChange, fontSize, onFontSizeChange,
+  font, onFontChange, fontSize, onFontSizeChange,
   theme, onThemeToggle, onOpenSettings, onAbout,
 }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
   const disabled = !fileOpen || isLoading || isRunning || isError
-  const fsaOpen = !!onSave
 
-  const [showSaved, setShowSaved] = useState(false)
   const [themeAnimating, setThemeAnimating] = useState(false)
-  useEffect(() => {
-    if (saveStatus !== 'autosaved') return
-    setShowSaved(true)
-    const id = setTimeout(() => setShowSaved(false), 2000)
-    return () => clearTimeout(id)
-  }, [saveStatus])
 
   return (
     <header className={styles.toolbar} role="banner">
@@ -244,34 +264,13 @@ export function Toolbar({
           <InfoIcon />
         </button>
         <div className={styles.dividerV} aria-hidden="true" />
-        <FileMenu onImport={onImport} onOpenFolder={onOpenFolder} />
-      </div>
-
-      {/* CENTER — save / sync controls (FSA only) */}
-      <div className={styles.center}>
-        {fsaOpen && (
-          <>
-            <button
-              className={`${styles.saveButton} ${canSave ? styles.saveButtonDirty : ''}`}
-              onClick={onSave}
-              disabled={!canSave}
-              title="Save file (⌘S / Ctrl+S)"
-              aria-label="Save file"
-            >
-              {showSaved ? 'Saved ✓' : canSave ? '● Save' : 'Save'}
-            </button>
-            {onReload && (
-              <button
-                className={styles.menuTrigger}
-                onClick={onReload}
-                title="Reload all files from disk"
-                aria-label="Reload from disk"
-              >
-                Reload
-              </button>
-            )}
-          </>
-        )}
+        <FileMenu
+          onImport={onImport}
+          onOpenFolder={onOpenFolder}
+          onSave={onSave}
+          canSave={canSave}
+          onReload={onReload}
+        />
       </div>
 
       {/* RIGHT — font picker, font size, runtime status, run, about */}
