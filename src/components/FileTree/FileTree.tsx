@@ -20,6 +20,7 @@ export interface FileOps {
 interface FileTreeProps {
   nodes: FileNode[]
   activeFilePath: string | null
+  unsavedPath?: string | null
   onFileSelect: (path: string) => void
   onOpenFolder: () => void
   ops?: FileOps
@@ -28,6 +29,7 @@ interface FileTreeProps {
 interface TreeNodeProps {
   node: FileNode
   activeFilePath: string | null
+  unsavedPath?: string | null
   onFileSelect: (path: string) => void
   ops?: FileOps
   pendingAction: PendingAction
@@ -143,7 +145,7 @@ function InlineInput({
 
 // ── Tree node ──────────────────────────────────────────────────────────────
 
-function TreeNode({ node, activeFilePath, onFileSelect, ops, pendingAction, setPendingAction, depth }: TreeNodeProps) {
+function TreeNode({ node, activeFilePath, unsavedPath, onFileSelect, ops, pendingAction, setPendingAction, depth }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(depth === 0)
   const indent = depth * 12
 
@@ -157,7 +159,7 @@ function TreeNode({ node, activeFilePath, onFileSelect, ops, pendingAction, setP
     if (isCreatingInside) setExpanded(true)
   }, [isCreatingInside])
 
-  const sharedProps = { activeFilePath, onFileSelect, ops, pendingAction, setPendingAction }
+  const sharedProps = { activeFilePath, unsavedPath, onFileSelect, ops, pendingAction, setPendingAction }
 
   if (node.type === 'directory') {
     return (
@@ -246,6 +248,7 @@ function TreeNode({ node, activeFilePath, onFileSelect, ops, pendingAction, setP
 
   // File node
   const isActive = activeFilePath === node.path
+  const isUnsaved = unsavedPath === node.path
 
   return (
     <div
@@ -271,6 +274,9 @@ function TreeNode({ node, activeFilePath, onFileSelect, ops, pendingAction, setP
       ) : (
         <span className={styles.name}>{node.name}</span>
       )}
+      {isUnsaved && !isRenaming && (
+        <span className={styles.unsavedDot} aria-label="Unsaved changes" title="Unsaved changes">●</span>
+      )}
       {ops && !isRenaming && (
         <span className={styles.actions} onClick={(e) => e.stopPropagation()}>
           <button
@@ -291,7 +297,7 @@ function TreeNode({ node, activeFilePath, onFileSelect, ops, pendingAction, setP
 
 // ── FileTree ───────────────────────────────────────────────────────────────
 
-export function FileTree({ nodes, activeFilePath, onFileSelect, onOpenFolder, ops }: FileTreeProps) {
+export function FileTree({ nodes, activeFilePath, unsavedPath, onFileSelect, onOpenFolder, ops }: FileTreeProps) {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
 
   // Header "+file"/"+folder" create at the directory of the active file,
@@ -333,6 +339,7 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, onOpenFolder, op
               key={node.path}
               node={node}
               activeFilePath={activeFilePath}
+              unsavedPath={unsavedPath}
               onFileSelect={onFileSelect}
               ops={ops}
               pendingAction={pendingAction}

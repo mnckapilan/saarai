@@ -560,6 +560,7 @@ export function IDE() {
           <FileTree
             nodes={fileTree}
             activeFilePath={activeFilePath}
+            unsavedPath={canSave ? activeFilePath : null}
             onFileSelect={handleFileSelect}
             onOpenFolder={handleOpenFolderClick}
             ops={fileOps}
