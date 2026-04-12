@@ -21,6 +21,7 @@ interface ToolbarProps {
   saveStatus?: 'unsaved' | 'autosaved' | null
   font: FontOption
   onFontChange: (font: FontOption) => void
+  onAbout: () => void
 }
 
 function PlayIcon() {
@@ -41,7 +42,7 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange }: ToolbarProps) {
+export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, onAbout }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
@@ -109,6 +110,14 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
       </div>
 
       <div className={styles.right}>
+        <button
+          className={styles.infoButton}
+          onClick={onAbout}
+          title="About Saarai"
+          aria-label="About Saarai"
+        >
+          ℹ
+        </button>
         <label className={styles.fontLabel} htmlFor="font-select">
           Font
         </label>
