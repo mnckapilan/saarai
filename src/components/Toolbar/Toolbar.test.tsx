@@ -12,6 +12,9 @@ function renderToolbar(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
     onOpenFolder: vi.fn(),
     font: DEFAULT_FONT,
     onFontChange: vi.fn(),
+    fontSize: 14,
+    onFontSizeChange: vi.fn(),
+    onAbout: vi.fn(),
     ...overrides,
   }
   return { ...render(<Toolbar {...props} />), props }
@@ -92,17 +95,17 @@ describe('Toolbar — Save button', () => {
 
 describe('Toolbar — save status indicator', () => {
   it('shows "Unsaved changes" when saveStatus is unsaved', () => {
-    renderToolbar({ saveStatus: 'unsaved' })
+    renderToolbar({ onSave: vi.fn(), saveStatus: 'unsaved' })
     expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument()
   })
 
   it('shows "Autosaved" when saveStatus is autosaved', () => {
-    renderToolbar({ saveStatus: 'autosaved' })
+    renderToolbar({ onSave: vi.fn(), saveStatus: 'autosaved' })
     expect(screen.getByText(/Autosaved/)).toBeInTheDocument()
   })
 
   it('shows neither indicator when saveStatus is null', () => {
-    renderToolbar({ saveStatus: null })
+    renderToolbar({ onSave: vi.fn(), saveStatus: null })
     expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Autosaved/)).not.toBeInTheDocument()
   })
@@ -111,16 +114,16 @@ describe('Toolbar — save status indicator', () => {
 describe('Toolbar — autosave toggle', () => {
   it('is absent when onAutosaveToggle is not provided', () => {
     renderToolbar()
-    expect(screen.queryByRole('button', { name: /autosave/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: /autosave/i })).not.toBeInTheDocument()
   })
 
-  it('shows Enable autosave label when autosave is off', () => {
-    renderToolbar({ onAutosaveToggle: vi.fn(), autosaveEnabled: false })
-    expect(screen.getByRole('button', { name: /Enable autosave/i })).toBeInTheDocument()
+  it('is unchecked when autosave is off', () => {
+    renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: false })
+    expect(screen.getByRole('switch', { name: /Enable autosave/i })).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('shows Disable autosave label when autosave is on', () => {
-    renderToolbar({ onAutosaveToggle: vi.fn(), autosaveEnabled: true })
-    expect(screen.getByRole('button', { name: /Disable autosave/i })).toBeInTheDocument()
+  it('is checked when autosave is on', () => {
+    renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: true })
+    expect(screen.getByRole('switch', { name: /Disable autosave/i })).toHaveAttribute('aria-checked', 'true')
   })
 })
