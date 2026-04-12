@@ -4,6 +4,7 @@ import { Editor, type EditorHandle } from '../Editor/Editor'
 import { FileTree } from '../FileTree/FileTree'
 import { OutputPanel } from '../OutputPanel/OutputPanel'
 import { Toolbar } from '../Toolbar/Toolbar'
+import { WelcomeModal } from '../WelcomeModal/WelcomeModal'
 import { usePyodide } from '../../hooks/usePyodide'
 import { useFont } from '../../hooks/useFont'
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut'
@@ -16,6 +17,8 @@ import {
 } from '../../hooks/useFSA'
 import { FileNode } from '../../types'
 import styles from './IDE.module.css'
+
+const WELCOME_SEEN_KEY = 'saarai:welcomeSeen'
 
 
 function sortFileNodes(nodes: FileNode[]): FileNode[] {
@@ -108,6 +111,14 @@ export function IDE() {
   const [code, setCode] = useState('')
   const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
+  const [showWelcome, setShowWelcome] = useState(
+    () => !sessionStorage.getItem(WELCOME_SEEN_KEY),
+  )
+
+  function handleCloseWelcome() {
+    sessionStorage.setItem(WELCOME_SEEN_KEY, '1')
+    setShowWelcome(false)
+  }
 
   const editorRef = useRef<EditorHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -507,6 +518,7 @@ export function IDE() {
 
   return (
     <div className={styles.ide}>
+      {showWelcome && <WelcomeModal onClose={handleCloseWelcome} />}
       <input
         ref={fileInputRef}
         type="file"
@@ -536,6 +548,7 @@ export function IDE() {
         saveStatus={saveStatus}
         font={font}
         onFontChange={setFont}
+        onAbout={() => setShowWelcome(true)}
       />
 
       <PanelGroup direction="horizontal" className={styles.panelGroup}>
