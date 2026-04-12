@@ -37,6 +37,8 @@ const BASE_EDITOR_OPTIONS: MonacoOptions = {
 export interface EditorHandle {
   /** Dispose the Monaco model for a given file path, freeing its undo history. */
   disposeModel(filePath: string): void
+  /** Returns the currently selected text, or null if the selection is empty. */
+  getSelectedText(): string | null
 }
 
 interface EditorProps {
@@ -53,13 +55,14 @@ interface EditorProps {
   filePath?: string | null
   onChange: (value: string) => void
   onRun: () => void
+  onSelectionChange?: (hasSelection: boolean) => void
   fontFamily: string
   fontLigatures: boolean
   fontSize: number
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, filePath, onChange, onRun, fontFamily, fontLigatures, fontSize },
+  { value, filePath, onChange, onRun, onSelectionChange, fontFamily, fontLigatures, fontSize },
   ref,
 ) {
   const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
@@ -75,6 +78,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   onRunRef.current = onRun
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onSelectionChangeRef = useRef(onSelectionChange)
+  onSelectionChangeRef.current = onSelectionChange
 
   // editorValue is what we pass to <MonacoEditor value=…>.
   // We keep it in sync with the active model ourselves so that
@@ -143,6 +148,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         () => onRunRef.current(),
       )
 
+      editor.onDidChangeCursorSelection((e) => {
+        const hasSelection = !e.selection.isEmpty()
+        onSelectionChangeRef.current?.(hasSelection)
+      })
+
       if (filePath) {
         activateModel(editor, monaco, filePath, value)
       }
@@ -173,6 +183,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           modelsRef.current.delete(path)
           viewStatesRef.current.delete(path)
         }
+      },
+      getSelectedText() {
+        const editor = editorRef.current
+        if (!editor) return null
+        const selection = editor.getSelection()
+        if (!selection) return null
+        const text = editor.getModel()?.getValueInRange(selection) ?? ''
+        return text || null
       },
     }),
     [],
