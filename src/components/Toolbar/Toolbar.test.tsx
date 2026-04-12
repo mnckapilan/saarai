@@ -90,42 +90,29 @@ describe('Toolbar — Run button', () => {
   })
 })
 
-describe('Toolbar — Save button', () => {
-  it('is absent when onSave is not provided', () => {
+describe('Toolbar — Save in File menu', () => {
+  it('Save item is absent when onSave is not provided', async () => {
     renderToolbar()
-    expect(screen.queryByRole('button', { name: /Save file/i })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^File$/i }))
+    expect(screen.queryByRole('menuitem', { name: /^Save$/i })).not.toBeInTheDocument()
   })
 
-  it('is present when onSave is provided', () => {
+  it('Save item is present when onSave is provided', async () => {
     renderToolbar({ onSave: vi.fn() })
-    expect(screen.getByRole('button', { name: /Save file/i })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^File$/i }))
+    expect(screen.getByRole('menuitem', { name: /^Save$/i })).toBeInTheDocument()
   })
 
-  it('is disabled when canSave is false', () => {
+  it('Save item is disabled when canSave is false', async () => {
     renderToolbar({ onSave: vi.fn(), canSave: false })
-    expect(screen.getByRole('button', { name: /Save file/i })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /^File$/i }))
+    expect(screen.getByRole('menuitem', { name: /^Save$/i })).toBeDisabled()
   })
 
-  it('is enabled when canSave is true', () => {
+  it('Save item is enabled when canSave is true', async () => {
     renderToolbar({ onSave: vi.fn(), canSave: true })
-    expect(screen.getByRole('button', { name: /Save file/i })).not.toBeDisabled()
-  })
-})
-
-describe('Toolbar — save status indicator', () => {
-  it('shows ● Save on the button when there are unsaved changes', () => {
-    renderToolbar({ onSave: vi.fn(), canSave: true })
-    expect(screen.getByRole('button', { name: /Save file/i })).toHaveTextContent('● Save')
-  })
-
-  it('shows Saved ✓ on the button briefly after autosave', async () => {
-    renderToolbar({ onSave: vi.fn(), saveStatus: 'autosaved' })
-    expect(screen.getByRole('button', { name: /Save file/i })).toHaveTextContent('Saved ✓')
-  })
-
-  it('shows plain Save on the button when there are no unsaved changes', () => {
-    renderToolbar({ onSave: vi.fn(), saveStatus: null })
-    expect(screen.getByRole('button', { name: /Save file/i })).toHaveTextContent('Save')
+    await userEvent.click(screen.getByRole('button', { name: /^File$/i }))
+    expect(screen.getByRole('menuitem', { name: /^Save$/i })).not.toBeDisabled()
   })
 })
 

@@ -148,9 +148,6 @@ export function IDE() {
   const [bracketColorization, setBracketColorization] = useState(
     () => localStorage.getItem('saarai:bracketColorization') !== 'false',
   )
-  // 'auto' → last save was triggered by autosave; 'manual' → user-initiated; null → no save yet / file just loaded
-  const [lastSaveType, setLastSaveType] = useState<'auto' | 'manual' | null>(null)
-
   // Stable refs so the autosave interval never captures stale closures.
   const canSaveRef = useRef(false)
   const handleSaveRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false))
@@ -199,7 +196,6 @@ export function IDE() {
         setFileTree(buildFileTreeFromPaths(Array.from(contents.keys())))
         setActiveFilePath(null)
         setLastSavedCode(null)
-        setLastSaveType(null)
         mountFiles(contents, cwd)
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
@@ -221,7 +217,7 @@ export function IDE() {
         setCode(text)
         setActiveFilePath(file.name)
         setLastSavedCode(text)
-        setLastSaveType(null)
+
         mountFiles(contentMapRef.current, '/project')
       })
       e.target.value = ''
@@ -238,7 +234,6 @@ export function IDE() {
       dirHandleRef.current = null
       emptyDirsRef.current = new Set()
       setLastSavedCode(null)
-      setLastSaveType(null)
 
       const visibleFiles = files.filter(
         (f) => !f.webkitRelativePath.split('/').some((p) => p.startsWith('.')),
@@ -274,7 +269,6 @@ export function IDE() {
     setCode(content)
     setActiveFilePath(path)
     setLastSavedCode(content)
-    setLastSaveType(null)
   }, [])
 
   const handleSave = useCallback(async (): Promise<boolean> => {
@@ -295,7 +289,7 @@ export function IDE() {
   }, [activeFilePath, code, patchFile])
 
   const handleManualSave = useCallback(async () => {
-    if (await handleSave()) setLastSaveType('manual')
+    await handleSave()
   }, [handleSave])
 
   const handleReload = useCallback(async () => {
@@ -317,8 +311,6 @@ export function IDE() {
 
       refreshFileTree()
       mountFiles(contents, cwdRef.current)
-
-      setLastSaveType(null)
 
       // Reload the active file's content if it still exists; deselect if gone.
       if (activeFilePath) {
@@ -497,18 +489,11 @@ export function IDE() {
     if (!autosaveEnabled) return
     const id = setInterval(async () => {
       if (canSaveRef.current) {
-        const saved = await handleSaveRef.current()
-        if (saved) setLastSaveType('auto')
+        await handleSaveRef.current()
       }
     }, 5_000)
     return () => clearInterval(id)
   }, [autosaveEnabled])
-
-  const saveStatus: 'unsaved' | 'autosaved' | null = canSave
-    ? 'unsaved'
-    : lastSaveType === 'auto'
-    ? 'autosaved'
-    : null
 
   const fsaOpen = dirHandleRef.current !== null
   const onSave = fsaOpen ? handleManualSave : undefined
@@ -557,7 +542,6 @@ export function IDE() {
         onSave={onSave}
         canSave={canSave}
         onReload={onReload}
-        saveStatus={saveStatus}
         font={font}
         onFontChange={setFont}
         fontSize={fontSize}
