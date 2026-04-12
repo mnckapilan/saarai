@@ -94,20 +94,19 @@ describe('Toolbar — Save button', () => {
 })
 
 describe('Toolbar — save status indicator', () => {
-  it('shows "Unsaved changes" when saveStatus is unsaved', () => {
-    renderToolbar({ onSave: vi.fn(), saveStatus: 'unsaved' })
-    expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument()
+  it('shows ● Save on the button when there are unsaved changes', () => {
+    renderToolbar({ onSave: vi.fn(), canSave: true })
+    expect(screen.getByRole('button', { name: /Save file/i })).toHaveTextContent('● Save')
   })
 
-  it('shows "Autosaved" when saveStatus is autosaved', () => {
+  it('shows Saved ✓ on the button briefly after autosave', async () => {
     renderToolbar({ onSave: vi.fn(), saveStatus: 'autosaved' })
-    expect(screen.getByText(/Autosaved/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Save file/i })).toHaveTextContent('Saved ✓')
   })
 
-  it('shows neither indicator when saveStatus is null', () => {
+  it('shows plain Save on the button when there are no unsaved changes', () => {
     renderToolbar({ onSave: vi.fn(), saveStatus: null })
-    expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Autosaved/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Save file/i })).toHaveTextContent('Save')
   })
 })
 

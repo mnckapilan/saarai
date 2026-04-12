@@ -118,6 +118,13 @@
   min-width: 0;
 }
 
+.unsavedDot {
+  font-size: 8px;
+  color: var(--color-warning);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 /* Per-row hover action buttons (rename, delete, new file/folder) */
 .actions {
   display: flex;
