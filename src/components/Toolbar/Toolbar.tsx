@@ -19,11 +19,7 @@ interface ToolbarProps {
   canSave?: boolean
   /** Re-reads all files from disk; present only when opened via FSA. */
   onReload?: () => void
-  /** Whether autosave is currently enabled. */
-  autosaveEnabled?: boolean
-  /** Toggles autosave; present only when opened via FSA. */
-  onAutosaveToggle?: () => void
-  /** Save status to display alongside the autosave toggle. */
+  /** Save status to display alongside the save button. */
   saveStatus?: 'unsaved' | 'autosaved' | null
   font: FontOption
   onFontChange: (font: FontOption) => void
@@ -31,8 +27,7 @@ interface ToolbarProps {
   onFontSizeChange: (size: number) => void
   theme: Theme
   onThemeToggle: () => void
-  bracketColorization: boolean
-  onBracketColorizationToggle: () => void
+  onOpenSettings: () => void
   onAbout: () => void
 }
 
@@ -187,58 +182,6 @@ function SettingsIcon() {
   )
 }
 
-function SettingRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
-  return (
-    <div className={styles.settingRow}>
-      <span className={styles.settingLabel}>{label}</span>
-      <button
-        role="switch"
-        aria-checked={checked}
-        aria-label={`${label} ${checked ? 'on, click to disable' : 'off, click to enable'}`}
-        className={`${styles.toggle} ${checked ? styles.toggleOn : ''}`}
-        onClick={onChange}
-      >
-        <span className={styles.toggleThumb} />
-      </button>
-    </div>
-  )
-}
-
-function SettingsMenu({
-  theme, onThemeToggle, autosaveEnabled, onAutosaveToggle, bracketColorization, onBracketColorizationToggle,
-}: {
-  theme: Theme
-  onThemeToggle: () => void
-  autosaveEnabled?: boolean
-  onAutosaveToggle?: () => void
-  bracketColorization: boolean
-  onBracketColorizationToggle: () => void
-}) {
-  const { open, setOpen, ref } = useDropdown()
-
-  return (
-    <div ref={ref} className={styles.menuRoot}>
-      <button
-        className={`${styles.themeButton} ${open ? styles.themeButtonOpen : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        title="Settings"
-        aria-label="Settings"
-        aria-expanded={open}
-      >
-        <SettingsIcon />
-      </button>
-      {open && (
-        <div className={`${styles.settingsPopup} ${styles.menuPopupRight}`}>
-          <SettingRow label="Light mode" checked={theme === 'light'} onChange={onThemeToggle} />
-          {onAutosaveToggle && (
-            <SettingRow label="Autosave" checked={!!autosaveEnabled} onChange={onAutosaveToggle} />
-          )}
-          <SettingRow label="Bracket colors" checked={bracketColorization} onChange={onBracketColorizationToggle} />
-        </div>
-      )}
-    </div>
-  )
-}
 
 function FontSizeControl({ size, onChange }: { size: number; onChange: (n: number) => void }) {
   return (
@@ -267,8 +210,8 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 export function Toolbar({
   status, onRun, fileOpen = false, hasEditorSelection = false,
   onImport, onOpenFolder, onSave, canSave, onReload,
-  autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, fontSize, onFontSizeChange,
-  theme, onThemeToggle, bracketColorization, onBracketColorizationToggle, onAbout,
+  saveStatus, font, onFontChange, fontSize, onFontSizeChange,
+  theme, onThemeToggle, onOpenSettings, onAbout,
 }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
@@ -344,14 +287,14 @@ export function Toolbar({
         >
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
-        <SettingsMenu
-          theme={theme}
-          onThemeToggle={onThemeToggle}
-          autosaveEnabled={autosaveEnabled}
-          onAutosaveToggle={onAutosaveToggle}
-          bracketColorization={bracketColorization}
-          onBracketColorizationToggle={onBracketColorizationToggle}
-        />
+        <button
+          className={styles.themeButton}
+          onClick={onOpenSettings}
+          title="Settings"
+          aria-label="Settings"
+        >
+          <SettingsIcon />
+        </button>
         <div className={styles.dividerV} aria-hidden="true" />
         <div className={styles.status} aria-live="polite">
           {isLoading && (
