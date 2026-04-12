@@ -374,7 +374,7 @@
   height: 28px;
   padding: 0;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -383,7 +383,7 @@
 }
 
 .themeButton:hover {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   border-color: var(--color-border);
 }
 
@@ -397,7 +397,7 @@
   height: 28px;
   padding: 0;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-ui);
@@ -408,6 +408,6 @@
 }
 
 .infoButton:hover {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   border-color: var(--color-border);
 }
