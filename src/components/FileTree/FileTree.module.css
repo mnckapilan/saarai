@@ -48,7 +48,7 @@
 }
 
 .tree::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-scrollbar-thumb);
   border-radius: 3px;
 }
 
@@ -70,7 +70,7 @@
 
 .dirRow:hover,
 .fileRow:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-hover);
 }
 
 .dirRow:focus-visible,
@@ -80,11 +80,11 @@
 }
 
 .activeFile {
-  background: rgba(0, 120, 212, 0.2);
+  background: var(--color-bg-active-file);
 }
 
 .activeFile:hover {
-  background: rgba(0, 120, 212, 0.27);
+  background: var(--color-bg-active-file-hover);
 }
 
 .chevron {
@@ -157,7 +157,7 @@
 }
 
 .actionBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-bg-hover-strong);
   color: var(--color-text-primary);
 }
 
@@ -196,7 +196,7 @@
 .openFolderBtn {
   padding: 5px var(--spacing-md);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-ui);
