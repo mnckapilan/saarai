@@ -38,6 +38,11 @@ const mockMonaco = {
   },
 }
 
+vi.mock('monaco-editor', () => ({}))
+vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
+  default: class MockWorker {},
+}))
+
 vi.mock('@monaco-editor/react', () => ({
   default: vi.fn(({ onMount }: { onMount?: (e: unknown, m: unknown) => void }) => {
     // Simulate Monaco calling onMount after mounting
