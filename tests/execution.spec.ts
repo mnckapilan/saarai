@@ -6,7 +6,7 @@ import { tmpdir } from 'os'
 // Opens a temporary .py file in the editor and returns the path so the
 // caller can clean it up.
 async function openPyFile(page: import('@playwright/test').Page, code: string): Promise<string> {
-  const tmpFile = join(tmpdir(), `saarai_exec_${Date.now()}.py`)
+  const tmpFile = join(tmpdir(), `saarai_exec_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
   writeFileSync(tmpFile, code)
   await page.getByRole('button', { name: 'File', exact: true }).click()
   const [fileChooser] = await Promise.all([
@@ -145,7 +145,7 @@ test.describe('code execution', () => {
       await expect(output).toContainText('first run', { timeout: 15_000 })
 
       // Modify the code and run again — previous output should be gone
-      const secondFile = join(tmpdir(), `saarai_exec_second_${Date.now()}.py`)
+      const secondFile = join(tmpdir(), `saarai_exec_second_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
       writeFileSync(secondFile, 'print("second run")\n')
       try {
         await page.getByRole('button', { name: 'File', exact: true }).click()
