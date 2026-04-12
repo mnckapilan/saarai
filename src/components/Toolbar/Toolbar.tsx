@@ -19,6 +19,8 @@ interface ToolbarProps {
   canSave?: boolean
   /** Re-reads all files from disk; present only when opened via FSA. */
   onReload?: () => void
+  autosaveEnabled?: boolean
+  onAutosaveToggle?: () => void
   font: FontOption
   onFontChange: (font: FontOption) => void
   fontSize: number
@@ -100,13 +102,15 @@ function useDropdown() {
 }
 
 function FileMenu({
-  onImport, onOpenFolder, onSave, canSave, onReload,
+  onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
 }: {
   onImport: () => void
   onOpenFolder: () => void
   onSave?: () => void
   canSave?: boolean
   onReload?: () => void
+  autosaveEnabled?: boolean
+  onAutosaveToggle?: () => void
 }) {
   const { open, setOpen, ref } = useDropdown()
 
@@ -155,6 +159,19 @@ function FileMenu({
                   onClick={() => { onReload(); setOpen(false) }}
                 >
                   Reload from disk
+                </button>
+              )}
+              {onAutosaveToggle && (
+                <button
+                  className={`${styles.menuItem} ${styles.menuItemToggle}`}
+                  role="menuitemcheckbox"
+                  aria-checked={autosaveEnabled}
+                  onClick={() => { onAutosaveToggle(); }}
+                >
+                  Autosave
+                  <span className={styles.menuItemToggleCheck} aria-hidden="true">
+                    {autosaveEnabled ? '✓' : ''}
+                  </span>
                 </button>
               )}
             </>
@@ -237,7 +254,7 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 
 export function Toolbar({
   status, onRun, fileOpen = false, hasEditorSelection = false,
-  onImport, onOpenFolder, onSave, canSave, onReload,
+  onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
   font, onFontChange, fontSize, onFontSizeChange,
   theme, onThemeToggle, onOpenSettings, onAbout,
 }: ToolbarProps) {
@@ -270,6 +287,8 @@ export function Toolbar({
           onSave={onSave}
           canSave={canSave}
           onReload={onReload}
+          autosaveEnabled={autosaveEnabled}
+          onAutosaveToggle={onAutosaveToggle}
         />
       </div>
 

@@ -542,6 +542,8 @@ export function IDE() {
         onSave={onSave}
         canSave={canSave}
         onReload={onReload}
+        autosaveEnabled={autosaveEnabled}
+        onAutosaveToggle={onAutosaveToggle}
         font={font}
         onFontChange={setFont}
         fontSize={fontSize}
