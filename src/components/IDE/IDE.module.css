@@ -37,7 +37,7 @@
   height: 32px;
   width: 3px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-resize-handle);
   pointer-events: none;
 }
 
@@ -63,7 +63,7 @@
   width: 32px;
   height: 3px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-resize-handle);
   pointer-events: none;
 }
 
