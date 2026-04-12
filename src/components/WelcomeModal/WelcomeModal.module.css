@@ -9,12 +9,12 @@
   max-height: calc(100vh - 48px);
   overflow-y: auto;
   padding: 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal);
   margin: auto;
 }
 
 .dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--color-backdrop);
   backdrop-filter: blur(2px);
 }
 
@@ -172,7 +172,7 @@
 
 .closeButton {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-ui);
