@@ -8,6 +8,7 @@ import { WelcomeModal } from '../WelcomeModal/WelcomeModal'
 import { usePyodide } from '../../hooks/usePyodide'
 import { useFont } from '../../hooks/useFont'
 import { useFontSize } from '../../hooks/useFontSize'
+import { useTheme } from '../../hooks/useTheme'
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut'
 import {
   fsaSupported,
@@ -113,6 +114,7 @@ export function IDE() {
   const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
   const { fontSize, setFontSize } = useFontSize()
+  const { theme, toggleTheme } = useTheme()
   const [showWelcome, setShowWelcome] = useState(
     () => !sessionStorage.getItem(WELCOME_SEEN_KEY),
   )
@@ -557,6 +559,8 @@ export function IDE() {
         onFontChange={setFont}
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
+        theme={theme}
+        onThemeToggle={toggleTheme}
         onAbout={() => setShowWelcome(true)}
       />
 
@@ -590,6 +594,7 @@ export function IDE() {
                       onRun={handleRun}
                       onSelectionChange={setHasEditorSelection}
                       onCursorPositionChange={(line, col) => setCursorPosition({ line, col })}
+                      monacoTheme={theme === 'dark' ? 'vs-dark' : 'vs'}
                       fontFamily={font.value}
                       fontLigatures={font.ligatures}
                       fontSize={fontSize}
