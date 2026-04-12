@@ -364,6 +364,31 @@
   cursor: not-allowed;
 }
 
+/* ── Settings popup ──────────────────────────────────────────────────────── */
+
+.settingsPopup {
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  padding: 5px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+}
+
+.settingLabel {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
 /* ── Theme toggle button ─────────────────────────────────────────────────── */
 
 @keyframes themeSpin {
@@ -387,7 +412,8 @@
   flex-shrink: 0;
 }
 
-.themeButton:hover {
+.themeButton:hover,
+.themeButtonOpen {
   color: var(--color-text-primary);
   background: var(--color-bg-secondary);
 }

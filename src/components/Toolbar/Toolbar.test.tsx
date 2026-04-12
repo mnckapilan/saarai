@@ -16,10 +16,16 @@ function renderToolbar(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
     onFontSizeChange: vi.fn(),
     theme: 'dark' as const,
     onThemeToggle: vi.fn(),
+    bracketColorization: true,
+    onBracketColorizationToggle: vi.fn(),
     onAbout: vi.fn(),
     ...overrides,
   }
   return { ...render(<Toolbar {...props} />), props }
+}
+
+async function openSettings() {
+  await userEvent.click(screen.getByRole('button', { name: /Settings/i }))
 }
 
 describe('Toolbar — runtime status', () => {
@@ -127,19 +133,40 @@ describe('Toolbar — save status indicator', () => {
   })
 })
 
-describe('Toolbar — autosave toggle', () => {
-  it('is absent when onAutosaveToggle is not provided', () => {
+describe('Toolbar — settings popup', () => {
+  it('is closed by default', () => {
     renderToolbar()
-    expect(screen.queryByRole('switch', { name: /autosave/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Light mode')).not.toBeInTheDocument()
   })
 
-  it('is unchecked when autosave is off', () => {
-    renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: false })
-    expect(screen.getByRole('switch', { name: /Enable autosave/i })).toHaveAttribute('aria-checked', 'false')
+  it('opens on settings button click', async () => {
+    renderToolbar()
+    await openSettings()
+    expect(screen.getByText('Light mode')).toBeInTheDocument()
+    expect(screen.getByText('Bracket colors')).toBeInTheDocument()
   })
 
-  it('is checked when autosave is on', () => {
+  it('autosave row is absent when onAutosaveToggle is not provided', async () => {
+    renderToolbar()
+    await openSettings()
+    expect(screen.queryByText('Autosave')).not.toBeInTheDocument()
+  })
+
+  it('autosave row is present when onAutosaveToggle is provided', async () => {
     renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: true })
-    expect(screen.getByRole('switch', { name: /Disable autosave/i })).toHaveAttribute('aria-checked', 'true')
+    await openSettings()
+    expect(screen.getByText('Autosave')).toBeInTheDocument()
+  })
+
+  it('autosave switch reflects enabled state', async () => {
+    renderToolbar({ onSave: vi.fn(), onAutosaveToggle: vi.fn(), autosaveEnabled: false })
+    await openSettings()
+    expect(screen.getByRole('switch', { name: /Autosave/i })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('bracket colors switch reflects state', async () => {
+    renderToolbar({ bracketColorization: false })
+    await openSettings()
+    expect(screen.getByRole('switch', { name: /Bracket colors/i })).toHaveAttribute('aria-checked', 'false')
   })
 })
