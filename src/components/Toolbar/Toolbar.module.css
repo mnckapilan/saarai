@@ -367,9 +367,8 @@
 /* ── Theme toggle button ─────────────────────────────────────────────────── */
 
 @keyframes themeSpin {
-  0%   { transform: rotate(0deg)  scale(1); }
-  40%  { transform: rotate(45deg) scale(0.6); }
-  100% { transform: rotate(90deg) scale(1); }
+  0%   { transform: rotate(-90deg) scale(0.6); }
+  100% { transform: rotate(0deg)   scale(1); }
 }
 
 .themeButton {
