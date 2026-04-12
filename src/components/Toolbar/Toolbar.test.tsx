@@ -43,31 +43,46 @@ describe('Toolbar — runtime status', () => {
 })
 
 describe('Toolbar — Run button', () => {
-  it('is enabled when status is ready', () => {
-    renderToolbar({ status: 'ready' })
+  it('is disabled when no file is open', () => {
+    renderToolbar({ status: 'ready', fileOpen: false })
+    expect(screen.getByRole('button', { name: /Run code/i })).toBeDisabled()
+  })
+
+  it('is enabled when a file is open and status is ready', () => {
+    renderToolbar({ status: 'ready', fileOpen: true })
     expect(screen.getByRole('button', { name: /Run code/i })).not.toBeDisabled()
   })
 
   it('is disabled when status is loading', () => {
-    renderToolbar({ status: 'loading' })
+    renderToolbar({ status: 'loading', fileOpen: true })
     expect(screen.getByRole('button', { name: /Run code/i })).toBeDisabled()
   })
 
   it('is disabled when status is running', () => {
-    renderToolbar({ status: 'running' })
+    renderToolbar({ status: 'running', fileOpen: true })
     expect(screen.getByRole('button', { name: /Run code/i })).toBeDisabled()
   })
 
   it('is disabled when status is error', () => {
-    renderToolbar({ status: 'error' })
+    renderToolbar({ status: 'error', fileOpen: true })
     expect(screen.getByRole('button', { name: /Run code/i })).toBeDisabled()
   })
 
   it('calls onRun when clicked', async () => {
     const onRun = vi.fn()
-    renderToolbar({ onRun })
+    renderToolbar({ onRun, fileOpen: true })
     await userEvent.click(screen.getByRole('button', { name: /Run code/i }))
     expect(onRun).toHaveBeenCalledOnce()
+  })
+
+  it('shows "Run selection" label when editor has a selection', () => {
+    renderToolbar({ fileOpen: true, hasEditorSelection: true })
+    expect(screen.getByRole('button', { name: /Run selection/i })).toBeInTheDocument()
+  })
+
+  it('shows "Run" label when there is no selection', () => {
+    renderToolbar({ fileOpen: true, hasEditorSelection: false })
+    expect(screen.getByRole('button', { name: /Run code/i })).toBeInTheDocument()
   })
 })
 
