@@ -7,7 +7,10 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 ### Editor
 - **Monaco Editor** — the same editor that powers VS Code, with full Python syntax highlighting
 - **Run with one click** or `Cmd+Enter` / `Ctrl+Enter` from anywhere in the app
+- **Run selection** — select any region and run just that code
 - **12 monospace fonts** to choose from (JetBrains Mono, Fira Code, Cascadia Code, and more), persisted across sessions
+- Adjustable font size, persisted across sessions
+- Cursor position shown in the status bar
 
 ### Python runtime
 - **Pyodide** — CPython compiled to WebAssembly, runs entirely in-browser with no backend
@@ -16,19 +19,26 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 
 ### File & folder import
 - **Open file** — import a single `.py` or `.txt` file into the editor
-- **Open folder** — import a whole project directory; hidden files and directories (dot-prefixed) are automatically excluded
+- **Open folder** — import a whole project directory via the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) (Chrome/Edge) or `<input webkitdirectory>` fallback; hidden dot-prefixed paths are excluded
 - Imported files are written into **Pyodide's in-memory filesystem** (`/project/`) so Python code can use `open()`, relative imports, and `import` across modules at runtime
 - The working directory is set to the project root so multi-file projects work out of the box
+- **Save** edited files back to disk (FSA API only), with **autosave** every 5 seconds (toggleable)
+- **Reload from disk** to pick up external changes
 
 ### File explorer
 - Navigable **file tree** in a resizable left panel
-- Folders expand and collapse; only the top-level folder starts expanded
-- Click any file to load it into the editor; the active file is highlighted
+- Create, rename, and delete files and folders directly in the tree
+- Click any file to load it into the editor; unsaved files are marked with a dot
 - Drag the panel divider to resize the explorer, editor, or output areas
 
 ### Output panel
-- Colour-coded output: `stdout` (light), `stderr` (red), runtime info (blue)
+- Colour-coded output: `stdout` (white), `stderr` (red), runtime info (blue)
 - One-click clear button
+
+### Settings & appearance
+- Light / dark theme toggle, persisted across sessions
+- Bracket pair colorization toggle
+- Settings accessible from the toolbar or the ⚙ icon
 
 ## Stack
 
@@ -56,11 +66,11 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 ~/.nvm/versions/node/v24.14.1/bin/npm run type-check
 
 # Unit tests (Vitest)
-~/.nvm/versions/node/v24.14.1/bin/npm run test:unit
+~/.nvm/versions/node/v24.14.1/bin/npm test
 
 # Unit tests in watch mode
-~/.nvm/versions/node/v24.14.1/bin/npm run test:unit:watch
+~/.nvm/versions/node/v24.14.1/bin/npm run test:watch
 
 # End-to-end tests (Playwright)
-~/.nvm/versions/node/v24.14.1/bin/npm test
+~/.nvm/versions/node/v24.14.1/bin/npm run test:e2e
 ```
