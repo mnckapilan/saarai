@@ -135,6 +135,20 @@
   cursor: default;
 }
 
+.menuItemToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.menuItemToggleCheck {
+  width: 12px;
+  font-size: 11px;
+  color: var(--color-success);
+  flex-shrink: 0;
+}
+
 .menuItemActive {
   color: var(--color-success);
 }
