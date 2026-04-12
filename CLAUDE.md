@@ -31,13 +31,17 @@ A single-page React + TypeScript app built with Vite. The app is a browser-based
 IDE (state owner)
  ├── usePyodide()        ← manages Pyodide lifecycle, MEMFS, execution
  │    └── pyodide npm    ← WASM files load from CDN at runtime (indexURL)
- ├── Toolbar             ← receives status + onRun + onImport + onOpenFolder
- ├── FileTree            ← navigable folder/file tree, fires onFileSelect
- ├── Editor (Monaco)     ← owns code string, fires onRun via Cmd+Enter
+ ├── Toolbar             ← receives status + onRun + onImport + onOpenFolder + save/reload/autosave
+ ├── FileTree            ← navigable folder/file tree, fires onFileSelect; supports create/rename/delete
+ ├── Editor (Monaco)     ← owns code string, fires onRun via Cmd+Enter; exposes EditorHandle ref
  └── OutputPanel         ← receives OutputLine[] array
 ```
 
-`usePyodide` is the core hook. It dynamically imports pyodide, initialises the runtime with CDN `indexURL`, wires `stdout`/`stderr` callbacks to React state, and exposes `runCode(code)`, `clearOutput()`, and `mountFiles(contents, cwd)`. Pyodide runs on the **main thread** (no Web Worker) — a noted future improvement.
+`usePyodide` is the core hook. It dynamically imports pyodide, initialises the runtime with CDN `indexURL`, wires `stdout`/`stderr` callbacks to React state, and exposes `runCode(code, scriptDir?)`, `clearOutput()`, `mountFiles(contents, cwd)`, and `patchFile(memfsPath, content)`. Pyodide runs on the **main thread** (no Web Worker) — a noted future improvement.
+
+### File save (File System Access API)
+
+When a folder is opened via `showDirectoryPicker()` (Chrome/Edge), `IDE` holds a `FileSystemDirectoryHandle`. Save writes back via `writeToDirectory`, reload re-reads via `readDirectory`. Autosave runs on a 5-second interval. The `<input webkitdirectory>` fallback is used in browsers without FSA support (Firefox, Safari) — read-only, no save.
 
 ### File / folder import
 
@@ -52,3 +56,9 @@ IDE (state owner)
 - **CSS Modules + CSS custom properties**: All design tokens live in `src/styles/tokens.css` and are imported via `src/index.css`. Component styles use `.module.css` files co-located with their component.
 - **`vite.config.ts`** excludes `pyodide` from `optimizeDeps` — required to prevent Vite from trying to pre-bundle Pyodide's Node-specific internals.
 - **Vite build warnings** about `node:url`, `node:fs` etc. from pyodide are expected and harmless — Pyodide detects the browser environment at runtime.
+- **`EditorHandle`**: `Editor` forwards a ref exposing `getSelectedText()` (used by "Run selection") and `disposeModel(path)` (used when files are renamed/deleted to avoid stale Monaco models).
+
+### Playwright e2e notes
+
+- Tests run against the Vite dev server (`npm run dev`). Kill any existing server on port 5173 before running e2e tests to ensure a fresh server is used — `reuseExistingServer` can pick up a stale process.
+- Execution tests (`tests/execution.spec.ts`) load Pyodide from CDN; allow up to 50 s for the runtime-ready state.
