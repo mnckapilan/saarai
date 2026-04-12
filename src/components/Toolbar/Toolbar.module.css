@@ -168,6 +168,14 @@
   cursor: default;
 }
 
+.saveButtonDirty {
+  color: var(--color-warning) !important;
+}
+
+.saveButtonDirty:hover:not(:disabled) {
+  color: var(--color-warning) !important;
+}
+
 /* ── Autosave toggle switch ──────────────────────────────────────────────── */
 
 .autosaveLabel {
@@ -202,8 +210,8 @@
 }
 
 .toggleOn {
-  background: var(--color-success);
-  border-color: var(--color-success);
+  background: #4a7c5e;
+  border-color: #4a7c5e;
 }
 
 .toggleThumb {

@@ -174,6 +174,14 @@ export function Toolbar({
   const disabled = isLoading || isRunning || isError
   const fsaOpen = !!onSave
 
+  const [showSaved, setShowSaved] = useState(false)
+  useEffect(() => {
+    if (saveStatus !== 'autosaved') return
+    setShowSaved(true)
+    const id = setTimeout(() => setShowSaved(false), 2000)
+    return () => clearTimeout(id)
+  }, [saveStatus])
+
   return (
     <header className={styles.toolbar} role="banner">
 
@@ -198,13 +206,13 @@ export function Toolbar({
         {fsaOpen && (
           <>
             <button
-              className={styles.saveButton}
+              className={`${styles.saveButton} ${canSave ? styles.saveButtonDirty : ''}`}
               onClick={onSave}
               disabled={!canSave}
               title="Save file (⌘S / Ctrl+S)"
               aria-label="Save file"
             >
-              {canSave ? '● Save' : 'Save'}
+              {showSaved ? 'Saved ✓' : canSave ? '● Save' : 'Save'}
             </button>
             {onReload && (
               <button
@@ -232,12 +240,6 @@ export function Toolbar({
                   <span className={styles.toggleThumb} />
                 </button>
               </label>
-            )}
-            {saveStatus === 'unsaved' && (
-              <span className={styles.saveStatusUnsaved} aria-live="polite">Unsaved changes</span>
-            )}
-            {saveStatus === 'autosaved' && (
-              <span className={styles.saveStatusAutosaved} aria-live="polite">Autosaved</span>
             )}
           </>
         )}
