@@ -17,7 +17,9 @@ All commands must be run using the Node 24 binary directly (nvm shell integratio
 ~/.nvm/versions/node/v24.14.1/bin/npm run type-check
 ```
 
-Playwright e2e tests live in `tests/`. Run with `~/.nvm/versions/node/v24.14.1/bin/npm test`.
+Unit tests (Vitest) live in `src/`. Run with `~/.nvm/versions/node/v24.14.1/bin/npm test`.
+
+Playwright e2e tests live in `tests/`. Run with `~/.nvm/versions/node/v24.14.1/bin/npm run test:e2e`.
 
 ## Architecture
 
