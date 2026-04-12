@@ -14,6 +14,8 @@ function renderToolbar(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
     onFontChange: vi.fn(),
     fontSize: 14,
     onFontSizeChange: vi.fn(),
+    theme: 'dark' as const,
+    onThemeToggle: vi.fn(),
     onAbout: vi.fn(),
     ...overrides,
   }

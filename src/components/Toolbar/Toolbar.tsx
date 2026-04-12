@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PyodideStatus } from '../../types'
 import { type FontOption, MONO_FONTS } from '../../constants/fonts'
+import type { Theme } from '../../hooks/useTheme'
 import styles from './Toolbar.module.css'
 
 interface ToolbarProps {
@@ -28,7 +29,26 @@ interface ToolbarProps {
   onFontChange: (font: FontOption) => void
   fontSize: number
   onFontSizeChange: (size: number) => void
+  theme: Theme
+  onThemeToggle: () => void
   onAbout: () => void
+}
+
+function SunIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="2.8" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path d="M11 8.5A5.5 5.5 0 0 1 4.5 2a5.5 5.5 0 1 0 6.5 6.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 function PlayIcon() {
@@ -171,7 +191,8 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 export function Toolbar({
   status, onRun, fileOpen = false, hasEditorSelection = false,
   onImport, onOpenFolder, onSave, canSave, onReload,
-  autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, fontSize, onFontSizeChange, onAbout,
+  autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, fontSize, onFontSizeChange,
+  theme, onThemeToggle, onAbout,
 }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
@@ -254,6 +275,14 @@ export function Toolbar({
       <div className={styles.right}>
         <FontMenu font={font} onFontChange={onFontChange} />
         <FontSizeControl size={fontSize} onChange={onFontSizeChange} />
+        <button
+          className={styles.themeButton}
+          onClick={onThemeToggle}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </button>
         <div className={styles.dividerV} aria-hidden="true" />
         <div className={styles.status} aria-live="polite">
           {isLoading && (
