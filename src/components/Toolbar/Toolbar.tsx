@@ -6,6 +6,10 @@ import styles from './Toolbar.module.css'
 interface ToolbarProps {
   status: PyodideStatus
   onRun: () => void
+  /** Whether a file is currently open in the editor. */
+  fileOpen?: boolean
+  /** Whether the editor currently has a non-empty text selection. */
+  hasEditorSelection?: boolean
   onImport: () => void
   onOpenFolder: () => void
   /** Present only when a folder was opened via the File System Access API. */
@@ -165,13 +169,14 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 }
 
 export function Toolbar({
-  status, onRun, onImport, onOpenFolder, onSave, canSave, onReload,
+  status, onRun, fileOpen = false, hasEditorSelection = false,
+  onImport, onOpenFolder, onSave, canSave, onReload,
   autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, fontSize, onFontSizeChange, onAbout,
 }: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
-  const disabled = isLoading || isRunning || isError
+  const disabled = !fileOpen || isLoading || isRunning || isError
   const fsaOpen = !!onSave
 
   const [showSaved, setShowSaved] = useState(false)
@@ -265,11 +270,11 @@ export function Toolbar({
           className={styles.runButton}
           onClick={onRun}
           disabled={disabled}
-          title="Run code (⌘↵ / Ctrl+↵)"
-          aria-label="Run code"
+          title={hasEditorSelection ? 'Run selection (⌘↵ / Ctrl+↵)' : 'Run code (⌘↵ / Ctrl+↵)'}
+          aria-label={hasEditorSelection ? 'Run selection' : 'Run code'}
         >
           <PlayIcon />
-          Run
+          {hasEditorSelection ? 'Run selection' : 'Run'}
         </button>
       </div>
 

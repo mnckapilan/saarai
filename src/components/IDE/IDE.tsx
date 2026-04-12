@@ -116,6 +116,7 @@ export function IDE() {
   const [showWelcome, setShowWelcome] = useState(
     () => !sessionStorage.getItem(WELCOME_SEEN_KEY),
   )
+  const [hasEditorSelection, setHasEditorSelection] = useState(false)
 
   function handleCloseWelcome() {
     sessionStorage.setItem(WELCOME_SEEN_KEY, '1')
@@ -166,7 +167,8 @@ export function IDE() {
     const scriptDir = activeFilePath
       ? `/project/${activeFilePath.slice(0, activeFilePath.lastIndexOf('/'))}`
       : undefined
-    runCode(code, scriptDir)
+    const selectedText = editorRef.current?.getSelectedText()
+    runCode(selectedText ?? code, scriptDir)
   }, [code, runCode, activeFilePath])
 
   const handleImportClick = useCallback(() => {
@@ -540,6 +542,8 @@ export function IDE() {
       <Toolbar
         status={status}
         onRun={handleRun}
+        fileOpen={activeFilePath !== null && activeFilePath.endsWith('.py')}
+        hasEditorSelection={hasEditorSelection}
         onImport={handleImportClick}
         onOpenFolder={handleOpenFolderClick}
         onSave={onSave}
@@ -581,6 +585,7 @@ export function IDE() {
                   filePath={activeFilePath}
                   onChange={setCode}
                   onRun={handleRun}
+                  onSelectionChange={setHasEditorSelection}
                   fontFamily={font.value}
                   fontLigatures={font.ligatures}
                   fontSize={fontSize}
