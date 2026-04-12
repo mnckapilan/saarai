@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { PyodideStatus } from '../../types'
 import { type FontOption, MONO_FONTS } from '../../constants/fonts'
 import styles from './Toolbar.module.css'
@@ -21,18 +22,14 @@ interface ToolbarProps {
   saveStatus?: 'unsaved' | 'autosaved' | null
   font: FontOption
   onFontChange: (font: FontOption) => void
+  fontSize: number
+  onFontSizeChange: (size: number) => void
   onAbout: () => void
 }
 
 function PlayIcon() {
   return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 11 11"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor" aria-hidden="true">
       <path d="M2 1.5l8 4-8 4V1.5z" />
     </svg>
   )
@@ -42,74 +39,148 @@ function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />
 }
 
-export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, onAbout }: ToolbarProps) {
+function ChevronIcon() {
+  return (
+    <svg width="8" height="5" viewBox="0 0 8 5" fill="none" aria-hidden="true">
+      <path d="M1 1l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function useDropdown() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  return { open, setOpen, ref }
+}
+
+function FileMenu({ onImport, onOpenFolder }: { onImport: () => void; onOpenFolder: () => void }) {
+  const { open, setOpen, ref } = useDropdown()
+
+  return (
+    <div ref={ref} className={styles.menuRoot}>
+      <button
+        className={`${styles.menuTrigger} ${open ? styles.menuTriggerOpen : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        File
+        <ChevronIcon />
+      </button>
+      {open && (
+        <div className={styles.menuPopup} role="menu">
+          <button
+            className={styles.menuItem}
+            role="menuitem"
+            onClick={() => { onImport(); setOpen(false) }}
+          >
+            Open file…
+          </button>
+          <button
+            className={styles.menuItem}
+            role="menuitem"
+            onClick={() => { onOpenFolder(); setOpen(false) }}
+          >
+            Open folder…
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FontMenu({ font, onFontChange }: { font: FontOption; onFontChange: (f: FontOption) => void }) {
+  const { open, setOpen, ref } = useDropdown()
+
+  return (
+    <div ref={ref} className={styles.menuRoot}>
+      <button
+        className={`${styles.menuTrigger} ${open ? styles.menuTriggerOpen : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        title="Editor font"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        Aa
+        <ChevronIcon />
+      </button>
+      {open && (
+        <div className={`${styles.menuPopup} ${styles.menuPopupRight}`} role="menu">
+          {MONO_FONTS.map((f) => (
+            <button
+              key={f.value}
+              className={`${styles.menuItem} ${f.value === font.value ? styles.menuItemActive : ''}`}
+              role="menuitem"
+              style={{ fontFamily: f.value }}
+              onClick={() => { onFontChange(f); setOpen(false) }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FontSizeControl({ size, onChange }: { size: number; onChange: (n: number) => void }) {
+  return (
+    <div className={styles.fontSizeControl}>
+      <button
+        className={styles.fontSizeBtn}
+        onClick={() => onChange(size - 1)}
+        aria-label="Decrease font size"
+        title="Decrease font size"
+      >
+        −
+      </button>
+      <span className={styles.fontSizeValue} aria-label={`Font size ${size}`}>{size}</span>
+      <button
+        className={styles.fontSizeBtn}
+        onClick={() => onChange(size + 1)}
+        aria-label="Increase font size"
+        title="Increase font size"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
+export function Toolbar({
+  status, onRun, onImport, onOpenFolder, onSave, canSave, onReload,
+  autosaveEnabled, onAutosaveToggle, saveStatus, font, onFontChange, fontSize, onFontSizeChange, onAbout,
+}: ToolbarProps) {
   const isLoading = status === 'loading'
   const isRunning = status === 'running'
   const isError = status === 'error'
   const disabled = isLoading || isRunning || isError
-
-  function handleFontChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = MONO_FONTS.find((f) => f.value === e.target.value)
-    if (selected) onFontChange(selected)
-  }
+  const fsaOpen = !!onSave
 
   return (
     <header className={styles.toolbar} role="banner">
-      <div className={styles.left}>
-        <span className={styles.logo} aria-label="Saarai">
-          🐍
-        </span>
-        <span className={styles.title}>Saarai</span>
-        <button
-          className={styles.importButton}
-          onClick={onImport}
-          title="Open .py file"
-          aria-label="Import Python file"
-        >
-          Open file
-        </button>
-        <button
-          className={styles.importButton}
-          onClick={onOpenFolder}
-          title="Open folder"
-          aria-label="Open folder"
-        >
-          Open folder
-        </button>
-        {onSave && (
-          <button
-            className={styles.saveButton}
-            onClick={onSave}
-            disabled={!canSave}
-            title="Save file (⌘S / Ctrl+S)"
-            aria-label="Save file"
-          >
-            {canSave ? '● Save' : 'Save'}
-          </button>
-        )}
-        {onReload && (
-          <button
-            className={styles.importButton}
-            onClick={onReload}
-            title="Reload all files from disk"
-            aria-label="Reload from disk"
-          >
-            Reload
-          </button>
-        )}
-        {onAutosaveToggle && (
-          <button
-            className={`${styles.importButton} ${autosaveEnabled ? styles.autosaveOn : ''}`}
-            onClick={onAutosaveToggle}
-            title={autosaveEnabled ? 'Autosave is on — click to disable' : 'Click to enable autosave'}
-            aria-label={autosaveEnabled ? 'Disable autosave' : 'Enable autosave'}
-          >
-            {autosaveEnabled ? '● Autosave' : 'Autosave'}
-          </button>
-        )}
-      </div>
 
-      <div className={styles.right}>
+      {/* LEFT — brand + info + file menu */}
+      <div className={styles.left}>
+        <span className={styles.logo} aria-label="Saarai">🐍</span>
+        <span className={styles.title}>Saarai</span>
         <button
           className={styles.infoButton}
           onClick={onAbout}
@@ -118,31 +189,65 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
         >
           ℹ
         </button>
-        <label className={styles.fontLabel} htmlFor="font-select">
-          Font
-        </label>
-        <select
-          id="font-select"
-          className={styles.fontSelect}
-          value={font.value}
-          onChange={handleFontChange}
-          style={{ fontFamily: font.value }}
-          aria-label="Editor font"
-        >
-          {MONO_FONTS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+        <div className={styles.dividerV} aria-hidden="true" />
+        <FileMenu onImport={onImport} onOpenFolder={onOpenFolder} />
+      </div>
 
-        {saveStatus === 'unsaved' && (
-          <span className={styles.saveStatusUnsaved} aria-live="polite">Unsaved changes</span>
+      {/* CENTER — save / sync controls (FSA only) */}
+      <div className={styles.center}>
+        {fsaOpen && (
+          <>
+            <button
+              className={styles.saveButton}
+              onClick={onSave}
+              disabled={!canSave}
+              title="Save file (⌘S / Ctrl+S)"
+              aria-label="Save file"
+            >
+              {canSave ? '● Save' : 'Save'}
+            </button>
+            {onReload && (
+              <button
+                className={styles.menuTrigger}
+                onClick={onReload}
+                title="Reload all files from disk"
+                aria-label="Reload from disk"
+              >
+                Reload
+              </button>
+            )}
+            {onAutosaveToggle && (
+              <label
+                className={styles.autosaveLabel}
+                title={autosaveEnabled ? 'Autosave is on — click to disable' : 'Click to enable autosave'}
+              >
+                <span className={styles.autosaveLabelText}>Autosave</span>
+                <button
+                  role="switch"
+                  aria-checked={autosaveEnabled}
+                  aria-label={autosaveEnabled ? 'Disable autosave' : 'Enable autosave'}
+                  className={`${styles.toggle} ${autosaveEnabled ? styles.toggleOn : ''}`}
+                  onClick={onAutosaveToggle}
+                >
+                  <span className={styles.toggleThumb} />
+                </button>
+              </label>
+            )}
+            {saveStatus === 'unsaved' && (
+              <span className={styles.saveStatusUnsaved} aria-live="polite">Unsaved changes</span>
+            )}
+            {saveStatus === 'autosaved' && (
+              <span className={styles.saveStatusAutosaved} aria-live="polite">Autosaved</span>
+            )}
+          </>
         )}
-        {saveStatus === 'autosaved' && (
-          <span className={styles.saveStatusAutosaved} aria-live="polite">Autosaved</span>
-        )}
-        <div className={styles.divider} aria-hidden="true" />
+      </div>
+
+      {/* RIGHT — font picker, font size, runtime status, run, about */}
+      <div className={styles.right}>
+        <FontMenu font={font} onFontChange={onFontChange} />
+        <FontSizeControl size={fontSize} onChange={onFontSizeChange} />
+        <div className={styles.dividerV} aria-hidden="true" />
         <div className={styles.status} aria-live="polite">
           {isLoading && (
             <span className={styles.statusLoading}>
@@ -150,17 +255,10 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
               Loading runtime…
             </span>
           )}
-          {isRunning && (
-            <span className={styles.statusRunning}>Running…</span>
-          )}
-          {status === 'ready' && (
-            <span className={styles.statusReady}>● Ready</span>
-          )}
-          {isError && (
-            <span className={styles.statusError}>● Runtime error</span>
-          )}
+          {isRunning && <span className={styles.statusRunning}>Running…</span>}
+          {status === 'ready' && <span className={styles.statusReady}>● Ready</span>}
+          {isError && <span className={styles.statusError}>● Runtime error</span>}
         </div>
-
         <button
           className={styles.runButton}
           onClick={onRun}
@@ -172,6 +270,7 @@ export function Toolbar({ status, onRun, onImport, onOpenFolder, onSave, canSave
           Run
         </button>
       </div>
+
     </header>
   )
 }
