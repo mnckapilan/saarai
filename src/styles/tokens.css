@@ -63,3 +63,45 @@
   --toolbar-height: 44px;
   --panel-header-height: 32px;
 }
+
+/* ── Light theme overrides ───────────────────────────────────────────────── */
+
+[data-theme='light'] {
+  /* Surfaces — loosely following VS Code Light Modern */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f3f3f3;
+  --color-bg-toolbar: #dddddd;
+  --color-bg-panel-header: #f3f3f3;
+
+  /* Borders */
+  --color-border: #cecece;
+  --color-border-subtle: #e4e4e4;
+
+  /* Text */
+  --color-text-primary: #1f1f1f;
+  --color-text-secondary: #6f6f6f;
+  --color-text-muted: #b0b0b0;
+
+  /* Semantic output colors */
+  --color-stdout: #1f1f1f;
+  --color-stderr: #cd3131;
+  --color-info: #0451a5;
+  --color-success: #167e36;
+  --color-warning: #795e00;
+
+  /* Interactive overlays — layered on top of light surfaces */
+  --color-bg-hover: rgba(0, 0, 0, 0.06);
+  --color-bg-hover-strong: rgba(0, 0, 0, 0.10);
+  --color-bg-active-file: rgba(0, 120, 212, 0.12);
+  --color-bg-active-file-hover: rgba(0, 120, 212, 0.18);
+
+  /* Specific component tokens */
+  --color-toggle-on: #167e36;
+  --color-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --color-resize-handle: rgba(0, 0, 0, 0.10);
+
+  /* Shadows & overlays */
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.20);
+  --color-backdrop: rgba(0, 0, 0, 0.40);
+}
