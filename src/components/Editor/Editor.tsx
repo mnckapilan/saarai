@@ -15,8 +15,6 @@ loader.config({
 type MonacoOptions = React.ComponentProps<typeof MonacoEditor>['options']
 
 const BASE_EDITOR_OPTIONS: MonacoOptions = {
-  fontSize: 14,
-  lineHeight: 22,
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
   lineNumbers: 'on',
@@ -57,10 +55,11 @@ interface EditorProps {
   onRun: () => void
   fontFamily: string
   fontLigatures: boolean
+  fontSize: number
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, filePath, onChange, onRun, fontFamily, fontLigatures },
+  { value, filePath, onChange, onRun, fontFamily, fontLigatures, fontSize },
   ref,
 ) {
   const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
@@ -84,8 +83,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [editorValue, setEditorValue] = useState(value)
 
   const options = useMemo<MonacoOptions>(
-    () => ({ ...BASE_EDITOR_OPTIONS, fontFamily, fontLigatures }),
-    [fontFamily, fontLigatures],
+    () => ({ ...BASE_EDITOR_OPTIONS, fontFamily, fontLigatures, fontSize }),
+    [fontFamily, fontLigatures, fontSize],
   )
 
   function activateModel(
