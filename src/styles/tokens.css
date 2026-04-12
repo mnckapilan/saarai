@@ -17,6 +17,8 @@
   /* Accent */
   --color-accent: #0078d4;
   --color-accent-hover: #1084d8;
+  --color-accent-active: #006bbf;
+  --color-on-accent: #ffffff;
 
   /* Semantic output colors */
   --color-stdout: #d4d4d4;
@@ -24,6 +26,22 @@
   --color-info: #9cdcfe;
   --color-success: #4ec994;
   --color-warning: #dcdcaa;
+
+  /* Interactive overlays — layered on top of dark surfaces */
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
+  --color-bg-hover-strong: rgba(255, 255, 255, 0.10);
+  --color-bg-active-file: rgba(0, 120, 212, 0.20);
+  --color-bg-active-file-hover: rgba(0, 120, 212, 0.27);
+
+  /* Specific component tokens */
+  --color-toggle-on: #4a7c5e;
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.10);
+  --color-resize-handle: rgba(255, 255, 255, 0.08);
+
+  /* Shadows & overlays */
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.40);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.60);
+  --color-backdrop: rgba(0, 0, 0, 0.60);
 
   /* Typography */
   --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas,

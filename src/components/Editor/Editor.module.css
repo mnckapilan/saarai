@@ -2,5 +2,5 @@
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #1e1e1e; /* matches Monaco vs-dark background */
+  background: var(--color-bg-primary);
 }
