@@ -31,6 +31,13 @@ const BASE_EDITOR_OPTIONS: MonacoOptions = {
   overviewRulerLanes: 0,
   hideCursorInOverviewRuler: true,
   renderLineHighlightOnlyWhenFocus: false,
+  smoothScrolling: true,
+  cursorBlinking: 'smooth',
+  stickyScroll: { enabled: true },
+  bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: false },
+  guides: { indentation: true, bracketPairs: true, highlightActiveBracketPair: true },
+  renderWhitespace: 'selection',
+  hover: { enabled: true, delay: 300, sticky: true },
 }
 
 /** Imperative handle exposed to the parent via ref. */
@@ -56,13 +63,14 @@ interface EditorProps {
   onChange: (value: string) => void
   onRun: () => void
   onSelectionChange?: (hasSelection: boolean) => void
+  onCursorPositionChange?: (line: number, col: number) => void
   fontFamily: string
   fontLigatures: boolean
   fontSize: number
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, filePath, onChange, onRun, onSelectionChange, fontFamily, fontLigatures, fontSize },
+  { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, fontFamily, fontLigatures, fontSize },
   ref,
 ) {
   const editorRef = useRef<MonacoTypes.editor.IStandaloneCodeEditor | null>(null)
@@ -80,6 +88,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   onChangeRef.current = onChange
   const onSelectionChangeRef = useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
+  const onCursorPositionChangeRef = useRef(onCursorPositionChange)
+  onCursorPositionChangeRef.current = onCursorPositionChange
 
   // editorValue is what we pass to <MonacoEditor value=…>.
   // We keep it in sync with the active model ourselves so that
@@ -151,6 +161,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       editor.onDidChangeCursorSelection((e) => {
         const hasSelection = !e.selection.isEmpty()
         onSelectionChangeRef.current?.(hasSelection)
+      })
+
+      editor.onDidChangeCursorPosition((e) => {
+        onCursorPositionChangeRef.current?.(e.position.lineNumber, e.position.column)
       })
 
       if (filePath) {

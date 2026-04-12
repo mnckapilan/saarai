@@ -117,6 +117,7 @@ export function IDE() {
     () => !sessionStorage.getItem(WELCOME_SEEN_KEY),
   )
   const [hasEditorSelection, setHasEditorSelection] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState<{ line: number; col: number } | null>(null)
 
   function handleCloseWelcome() {
     sessionStorage.setItem(WELCOME_SEEN_KEY, '1')
@@ -579,17 +580,27 @@ export function IDE() {
           <PanelGroup direction="vertical">
             <Panel defaultSize={65} minSize={20} className={styles.panel}>
               {activeFilePath !== null ? (
-                <Editor
-                  ref={editorRef}
-                  value={code}
-                  filePath={activeFilePath}
-                  onChange={setCode}
-                  onRun={handleRun}
-                  onSelectionChange={setHasEditorSelection}
-                  fontFamily={font.value}
-                  fontLigatures={font.ligatures}
-                  fontSize={fontSize}
-                />
+                <div className={styles.editorWrapper}>
+                  <div className={styles.editorArea}>
+                    <Editor
+                      ref={editorRef}
+                      value={code}
+                      filePath={activeFilePath}
+                      onChange={setCode}
+                      onRun={handleRun}
+                      onSelectionChange={setHasEditorSelection}
+                      onCursorPositionChange={(line, col) => setCursorPosition({ line, col })}
+                      fontFamily={font.value}
+                      fontLigatures={font.ligatures}
+                      fontSize={fontSize}
+                    />
+                  </div>
+                  <div className={styles.statusBar}>
+                    {cursorPosition && (
+                      <span>Ln {cursorPosition.line}, Col {cursorPosition.col}</span>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className={styles.noFile}>
                   <span className={styles.noFileTitle}>No file open</span>
