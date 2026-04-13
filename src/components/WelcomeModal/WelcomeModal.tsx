@@ -82,9 +82,9 @@ export function WelcomeModal({ onClose }: WelcomeModalProps) {
               not compiled for WebAssembly won't work.
             </li>
             <li>
-              <strong>Heavy computation will freeze the UI.</strong> Python runs on the browser's
-              main thread, so long-running scripts will make the page unresponsive until they
-              finish.
+              <strong>Long-running scripts can be interrupted.</strong> Python runs in a background
+              thread so the UI stays responsive. Use the <em>Stop</em> button to interrupt a
+              running script at any time.
             </li>
             <li>
               <strong>No network access from Python.</strong> Code cannot make HTTP requests or
