@@ -158,6 +158,14 @@ describe('useNotebook', () => {
     expect(mockRunCellCode).toHaveBeenCalledWith(codeCell.id, codeCell.source.join(''), undefined)
   })
 
+  it('runCell is a no-op for markdown cells', () => {
+    const { result } = renderHook(() => useNotebook(defaultProps))
+    act(() => { result.current.loadNotebook(SIMPLE_NB) })
+    const markdownCell = result.current.cells.find((c) => c.cell_type === 'markdown')!
+    act(() => { result.current.runCell(markdownCell.id) })
+    expect(mockRunCellCode).not.toHaveBeenCalled()
+  })
+
   it('runCell: does NOT call runCellCode if status is not ready', () => {
     const { result } = renderHook(() =>
       useNotebook({ ...defaultProps, status: 'running' }),
