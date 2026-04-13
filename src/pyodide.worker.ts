@@ -21,6 +21,59 @@ function post(msg: OutMessage) {
   self.postMessage(msg)
 }
 
+// Strip Pyodide internals from Python tracebacks so users only see frames
+// that relate to their own code.
+//
+// Raw errors look like:
+//   PythonError: Traceback (most recent call last):
+//     File "/lib/python312.zip/_pyodide/_base.py", line 597, in eval_code_async
+//       await CodeRunner(
+//     File "<exec>", line 3, in <module>
+//       foo()
+//   ValueError: oops
+//
+// After formatting:
+//   Traceback (most recent call last):
+//     File "<exec>", line 3, in <module>
+//       foo()
+//   ValueError: oops
+function formatPythonError(err: unknown): string {
+  const raw = String(err)
+  // Strip the JS-level "PythonError: " wrapper added by Pyodide
+  const text = raw.startsWith('PythonError: ') ? raw.slice(13) : raw
+
+  const lines = text.split('\n')
+  const out: string[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+    // Detect an internal Pyodide frame header: '  File "/lib/.../  _pyodide/...'
+    if (/^\s+File ".*\/_pyodide\//.test(line)) {
+      i++
+      // Skip the associated source/caret lines that belong to this frame
+      // (they don't start a new frame or a bare exception name)
+      while (
+        i < lines.length &&
+        lines[i] !== '' &&
+        !/^\s+File "/.test(lines[i]) &&
+        !/^\w/.test(lines[i])
+      ) {
+        i++
+      }
+    } else {
+      out.push(line)
+      i++
+    }
+  }
+
+  // If every frame was internal the header is now orphaned — remove it.
+  // "Traceback (most recent call last):\nSomeError" → "SomeError"
+  const result = out.join('\n').replace(/^Traceback \(most recent call last\):\s*\n(?=\w)/, '')
+
+  return result.trim()
+}
+
 let pyodide: PyodideInterface | null = null
 // Messages received before Pyodide finishes loading are queued and replayed.
 const queue: InMessage[] = []
@@ -61,7 +114,7 @@ del _sd, _stale, _script_dir
 `.trim())
         await pyodide!.runPythonAsync(code)
       } catch (err) {
-        post({ type: 'stderr', text: String(err) })
+        post({ type: 'stderr', text: formatPythonError(err) })
       }
       post({ type: 'done' })
       break
