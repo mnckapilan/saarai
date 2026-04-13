@@ -13,7 +13,7 @@ const { mockBehavior } = vi.hoisted(() => {
   return { mockBehavior }
 })
 
-vi.mock('../pyodide.worker?worker&inline', () => ({
+vi.mock('../pyodide.worker?worker', () => ({
   default: class MockWorker {
     onmessage: ((e: MessageEvent) => void) | null = null
 
