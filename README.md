@@ -8,14 +8,17 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 - **Monaco Editor** — the same editor that powers VS Code, with full Python syntax highlighting
 - **Run with one click** or `Cmd+Enter` / `Ctrl+Enter` from anywhere in the app
 - **Run selection** — select any region and run just that code
+- **Stop execution** — interrupt a running script at any time with the Stop button
 - **12 monospace fonts** to choose from (JetBrains Mono, Fira Code, Cascadia Code, and more), persisted across sessions
 - Adjustable font size, persisted across sessions
 - Cursor position shown in the status bar
 
 ### Python runtime
 - **Pyodide** — CPython compiled to WebAssembly, runs entirely in-browser with no backend
+- Runs in a **Web Worker** so the UI stays fully responsive during execution
 - Full Python standard library available
 - `stdout` and `stderr` streamed to the output panel in real time, colour-coded by type
+- Clean, readable tracebacks — Pyodide internals are filtered out and real filenames are shown
 
 ### File & folder import
 - **Open file** — import a single `.py` or `.txt` file into the editor
@@ -46,8 +49,8 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 |---|---|
 | UI | React 18 + TypeScript |
 | Build | Vite |
-| Editor | Monaco Editor (CDN) |
-| Python | Pyodide 0.26.4 (CDN) |
+| Editor | Monaco Editor (npm) |
+| Python | Pyodide 0.26.4 (CDN, Web Worker) |
 | Layout | react-resizable-panels |
 | Styles | CSS Modules + CSS custom properties |
 | Unit tests | Vitest + Testing Library |
