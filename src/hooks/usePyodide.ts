@@ -5,6 +5,8 @@ import PyodideWorker from '../pyodide.worker?worker'
 export function usePyodide() {
   const workerRef = useRef<Worker | null>(null)
   const interruptBufferRef = useRef<Uint8Array | null>(null)
+  const cellOutputHandlerRef = useRef<((cellId: string, type: OutputLine['type'], text: string) => void) | null>(null)
+  const cellDoneHandlerRef = useRef<((cellId: string) => void) | null>(null)
   const [status, setStatus] = useState<PyodideStatus>('loading')
   const [output, setOutput] = useState<OutputLine[]>([])
   const [writtenFiles, setWrittenFiles] = useState<[string, string][] | null>(null)
@@ -24,12 +26,24 @@ export function usePyodide() {
           setStatus('ready')
           break
         case 'stdout':
-          appendOutput('stdout', msg.text)
+          if (msg.cellId && cellOutputHandlerRef.current) {
+            cellOutputHandlerRef.current(msg.cellId, 'stdout', msg.text)
+          } else {
+            appendOutput('stdout', msg.text)
+          }
           break
         case 'stderr':
-          appendOutput('stderr', msg.text)
+          if (msg.cellId && cellOutputHandlerRef.current) {
+            cellOutputHandlerRef.current(msg.cellId, 'stderr', msg.text)
+          } else {
+            appendOutput('stderr', msg.text)
+          }
           break
         case 'done':
+          setStatus('ready')
+          break
+        case 'cellDone':
+          cellDoneHandlerRef.current?.(msg.cellId)
           setStatus('ready')
           break
         case 'mounted':
@@ -119,5 +133,42 @@ export function usePyodide() {
     workerRef.current.postMessage({ type: 'patchFile', path: memfsPath, content })
   }, [])
 
-  return { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile, writtenFiles }
+  const runCellCode = useCallback(
+    (cellId: string, code: string, scriptDir?: string) => {
+      if (!workerRef.current || status !== 'ready') return
+      const buf = interruptBufferRef.current
+      if (buf) Atomics.store(buf, 0, 0)
+      setStatus('running')
+      workerRef.current.postMessage({ type: 'runCell', cellId, code, scriptDir })
+    },
+    [status],
+  )
+
+  const setCellOutputHandler = useCallback(
+    (handler: ((cellId: string, type: OutputLine['type'], text: string) => void) | null) => {
+      cellOutputHandlerRef.current = handler
+    },
+    [],
+  )
+
+  const setCellDoneHandler = useCallback(
+    (handler: ((cellId: string) => void) | null) => {
+      cellDoneHandlerRef.current = handler
+    },
+    [],
+  )
+
+  return {
+    status,
+    output,
+    runCode,
+    interrupt,
+    clearOutput,
+    mountFiles,
+    patchFile,
+    writtenFiles,
+    runCellCode,
+    setCellOutputHandler,
+    setCellDoneHandler,
+  }
 }

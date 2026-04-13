@@ -1,0 +1,103 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  height: var(--panel-header-height);
+  background: var(--color-bg-panel-header);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.runAllButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 3px var(--spacing-md);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-on-accent);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.runAllButton:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.runAllButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.statusIndicator {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  margin-left: auto;
+}
+
+.statusReady {
+  color: var(--color-success);
+}
+
+.statusLoading {
+  color: var(--color-warning);
+}
+
+.statusRunning {
+  color: var(--color-info);
+}
+
+.statusError {
+  color: var(--color-stderr);
+}
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.footer {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.addCellButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 4px var(--spacing-md);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.addCellButton:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}

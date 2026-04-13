@@ -11,6 +11,9 @@ import { useFont } from '../../hooks/useFont'
 import { useFontSize } from '../../hooks/useFontSize'
 import { useTheme } from '../../hooks/useTheme'
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut'
+import { useNotebook } from '../../hooks/useNotebook'
+import { parseAndHydrate, extractPython } from '../../utils/ipynb'
+import { NotebookView } from '../Notebook/NotebookView'
 import {
   fsaSupported,
   readDirectory,
@@ -112,7 +115,27 @@ function buildFileTreeFromPaths(filePaths: string[], extraDirPaths: string[] = [
 
 export function IDE() {
   const [code, setCode] = useState('')
-  const { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile, writtenFiles } = usePyodide()
+  const { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile, writtenFiles, runCellCode, setCellOutputHandler, setCellDoneHandler } = usePyodide()
+
+  const {
+    cells: notebookCells,
+    isDirty: notebookIsDirty,
+    loadNotebook,
+    serializeCurrentNotebook,
+    updateCellSource,
+    runCell: runNotebookCell,
+    runAllCells,
+    addCodeCellAfter,
+    addMarkdownCellAfter,
+    deleteCell: deleteNotebookCell,
+    moveCellUp,
+    moveCellDown,
+  } = useNotebook({
+    setCellOutputHandler,
+    setCellDoneHandler,
+    runCellCode,
+    status,
+  })
   const { font, setFont } = useFont()
   const { fontSize, setFontSize } = useFontSize()
   const { theme, toggleTheme } = useTheme()
@@ -144,6 +167,8 @@ export function IDE() {
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
   const [lastSavedCode, setLastSavedCode] = useState<string | null>(null)
+
+  const isNotebook = activeFilePath?.endsWith('.ipynb') ?? false
   const [autosaveEnabled, setAutosaveEnabled] = useState(true)
   const [bracketColorization, setBracketColorization] = useState(
     () => localStorage.getItem('saarai:bracketColorization') !== 'false',
@@ -234,19 +259,26 @@ export function IDE() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (!file) return
-      file.text().then((text) => {
-        contentMapRef.current = new Map([[file.name, text]])
+      file.text().then((rawText) => {
+        contentMapRef.current = new Map([[file.name, rawText]])
         refreshFileTree()
-        setCode(text)
         setActiveFilePath(file.name)
-        setLastSavedCode(text)
+        setLastSavedCode(rawText)
 
-        mountFiles(contentMapRef.current, '/project')
+        if (file.name.endsWith('.ipynb')) {
+          const { cells } = parseAndHydrate(rawText)
+          loadNotebook(rawText)
+          setCode('')
+          mountFiles(new Map([[file.name, extractPython(cells)]]), '/project')
+        } else {
+          setCode(rawText)
+          mountFiles(contentMapRef.current, '/project')
+        }
       })
       e.target.value = ''
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mountFiles],
+    [mountFiles, loadNotebook],
   )
 
   const handleFolderChange = useCallback(
@@ -289,16 +321,32 @@ export function IDE() {
   const handleFileSelect = useCallback((path: string) => {
     const content = contentMapRef.current.get(path)
     if (content === undefined) return
-    setCode(content)
     setActiveFilePath(path)
     setLastSavedCode(content)
-  }, [])
+    if (path.endsWith('.ipynb')) {
+      loadNotebook(content)
+      setCode('') // editor not shown for notebooks
+    } else {
+      setCode(content)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadNotebook])
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     const handle = dirHandleRef.current
     if (!handle || !activeFilePath) return false
     const relPath = activeFilePath.slice(handle.name.length + 1)
     try {
+      if (activeFilePath.endsWith('.ipynb')) {
+        const serialized = serializeCurrentNotebook()
+        if (!serialized) return false
+        await writeToDirectory(handle, relPath, serialized)
+        contentMapRef.current.set(activeFilePath, serialized)
+        // Patch MEMFS with extracted Python
+        patchFile(`/project/${activeFilePath}`, extractPython(notebookCells))
+        setLastSavedCode(code) // keep lastSavedCode in sync (doesn't really matter for notebooks)
+        return true
+      }
       await writeToDirectory(handle, relPath, code)
       contentMapRef.current.set(activeFilePath, code)
       setLastSavedCode(code)
@@ -309,7 +357,7 @@ export function IDE() {
       console.error('Failed to save file:', err)
       return false
     }
-  }, [activeFilePath, code, patchFile])
+  }, [activeFilePath, code, patchFile, serializeCurrentNotebook, notebookCells])
 
   const handleManualSave = useCallback(async () => {
     await handleSave()
@@ -339,8 +387,13 @@ export function IDE() {
       if (activeFilePath) {
         const fresh = contents.get(activeFilePath)
         if (fresh !== undefined) {
-          setCode(fresh)
           setLastSavedCode(fresh)
+          if (activeFilePath.endsWith('.ipynb')) {
+            loadNotebook(fresh)
+            setCode('')
+          } else {
+            setCode(fresh)
+          }
         } else {
           setActiveFilePath(null)
           setLastSavedCode(null)
@@ -351,7 +404,7 @@ export function IDE() {
       console.error('Failed to reload folder:', err)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilePath, mountFiles])
+  }, [activeFilePath, mountFiles, loadNotebook])
 
   // ── File operations ────────────────────────────────────────────────────────
 
@@ -498,11 +551,12 @@ export function IDE() {
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
+  const hasUnsavedChanges = isNotebook ? notebookIsDirty : code !== lastSavedCode
   const canSave =
     dirHandleRef.current !== null &&
     activeFilePath !== null &&
     lastSavedCode !== null &&
-    code !== lastSavedCode
+    hasUnsavedChanges
 
   // Keep refs current so the autosave interval closure never goes stale.
   canSaveRef.current = canSave
@@ -542,7 +596,7 @@ export function IDE() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".py,.txt"
+        accept=".py,.txt,.ipynb"
         style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
         onChange={handleFileChange}
         aria-hidden="true"
@@ -611,55 +665,73 @@ export function IDE() {
         </PanelResizeHandle>
 
         <Panel className={styles.panel}>
-          <PanelGroup direction="vertical">
-            <Panel defaultSize={65} minSize={20} className={styles.panel}>
-              {activeFilePath !== null ? (
-                <div className={styles.editorWrapper}>
-                  <div className={styles.editorArea}>
-                    <Editor
-                      ref={editorRef}
-                      value={code}
-                      filePath={activeFilePath}
-                      onChange={setCode}
-                      onRun={handleRun}
-                      onSelectionChange={setHasEditorSelection}
-                      onCursorPositionChange={(line, col) => setCursorPosition({ line, col })}
-                      monacoTheme={theme === 'dark' ? 'vs-dark' : 'vs'}
-                      bracketColorization={bracketColorization}
-                      fontFamily={font.value}
-                      fontLigatures={font.ligatures}
-                      fontSize={fontSize}
-                    />
+          {isNotebook ? (
+            <NotebookView
+              cells={notebookCells}
+              pyodideStatus={status}
+              monacoTheme={theme === 'dark' ? 'vs-dark' : 'vs'}
+              fontFamily={font.value}
+              fontSize={fontSize}
+              onUpdateSource={(cellId, source) => updateCellSource(cellId, source)}
+              onRunCell={(cellId) => runNotebookCell(cellId, cwdRef.current ?? undefined)}
+              onDeleteCell={deleteNotebookCell}
+              onAddCodeAfter={addCodeCellAfter}
+              onAddMarkdownAfter={addMarkdownCellAfter}
+              onRunAll={() => runAllCells(cwdRef.current ?? undefined)}
+              onMoveCellUp={moveCellUp}
+              onMoveCellDown={moveCellDown}
+            />
+          ) : (
+            <PanelGroup direction="vertical">
+              <Panel defaultSize={65} minSize={20} className={styles.panel}>
+                {activeFilePath !== null ? (
+                  <div className={styles.editorWrapper}>
+                    <div className={styles.editorArea}>
+                      <Editor
+                        ref={editorRef}
+                        value={code}
+                        filePath={activeFilePath}
+                        onChange={setCode}
+                        onRun={handleRun}
+                        onSelectionChange={setHasEditorSelection}
+                        onCursorPositionChange={(line, col) => setCursorPosition({ line, col })}
+                        monacoTheme={theme === 'dark' ? 'vs-dark' : 'vs'}
+                        bracketColorization={bracketColorization}
+                        fontFamily={font.value}
+                        fontLigatures={font.ligatures}
+                        fontSize={fontSize}
+                      />
+                    </div>
+                    <div className={styles.statusBar}>
+                      {cursorPosition && (
+                        <span>Ln {cursorPosition.line}, Col {cursorPosition.col}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className={styles.statusBar}>
-                    {cursorPosition && (
-                      <span>Ln {cursorPosition.line}, Col {cursorPosition.col}</span>
-                    )}
+                ) : (
+                  <div className={styles.noFile}>
+                    <span className={styles.noFileTitle}>No file open</span>
+                    <div className={styles.noFileButtons}>
+                      <button className={styles.noFileButton} onClick={handleImportClick}>
+                        Open file
+                      </button>
+                      <button className={styles.noFileButton} onClick={handleOpenFolderClick}>
+                        Open folder
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className={styles.noFile}>
-                  <span className={styles.noFileTitle}>No file open</span>
-                  <div className={styles.noFileButtons}>
-                    <button className={styles.noFileButton} onClick={handleImportClick}>
-                      Open file
-                    </button>
-                    <button className={styles.noFileButton} onClick={handleOpenFolderClick}>
-                      Open folder
-                    </button>
-                  </div>
-                </div>
-              )}
-            </Panel>
+                )}
+              </Panel>
 
-            <PanelResizeHandle className={styles.resizeHandleRow}>
-              <div className={styles.resizeHandleBarRow} />
-            </PanelResizeHandle>
+              <PanelResizeHandle className={styles.resizeHandleRow}>
+                <div className={styles.resizeHandleBarRow} />
+              </PanelResizeHandle>
 
-            <Panel defaultSize={35} minSize={12} className={styles.panel}>
-              <OutputPanel output={output} onClear={clearOutput} />
-            </Panel>
-          </PanelGroup>
+              <Panel defaultSize={35} minSize={12} className={styles.panel}>
+                <OutputPanel output={output} onClear={clearOutput} />
+              </Panel>
+            </PanelGroup>
+          )}
         </Panel>
       </PanelGroup>
     </div>

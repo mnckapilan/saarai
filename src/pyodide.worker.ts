@@ -8,12 +8,14 @@ type InMessage =
   | { type: 'run'; code: string; scriptDir?: string; scriptPath?: string }
   | { type: 'mountFiles'; files: [string, string][]; cwd: string }
   | { type: 'patchFile'; path: string; content: string }
+  | { type: 'runCell'; cellId: string; code: string; scriptDir?: string }
 
 type OutMessage =
   | { type: 'ready' }
-  | { type: 'stdout'; text: string }
-  | { type: 'stderr'; text: string }
+  | { type: 'stdout'; text: string; cellId?: string }
+  | { type: 'stderr'; text: string; cellId?: string }
   | { type: 'done' }
+  | { type: 'cellDone'; cellId: string }
   | { type: 'mounted'; count: number; cwd: string }
   | { type: 'error'; message: string }
   | { type: 'filesWritten'; files: [string, string][] }
@@ -78,6 +80,8 @@ function formatPythonError(err: unknown): string {
 
   return result.trim()
 }
+
+let activeCellId: string | null = null
 
 let pyodide: PyodideInterface | null = null
 // Messages received before Pyodide finishes loading are queued and replayed.
@@ -173,6 +177,34 @@ del _sd, _stale, _script_dir
       break
     }
 
+    case 'runCell': {
+      const { cellId, code, scriptDir } = msg
+      activeCellId = cellId
+      try {
+        pyodide!.globals.set('_script_dir', scriptDir ?? '')
+        pyodide!.runPython(`
+import sys, importlib
+_sd = _script_dir
+if _sd and _sd not in sys.path:
+    sys.path.insert(0, _sd)
+_stale = [k for k, v in sys.modules.items()
+          if getattr(getattr(v, '__spec__', None), 'origin', None)
+          and v.__spec__.origin.startswith('/project/')]
+for _k in _stale:
+    del sys.modules[_k]
+importlib.invalidate_caches()
+del _sd, _stale, _script_dir
+`.trim())
+        await pyodide!.runPythonAsync(code, { filename: `<cell:${cellId}>` })
+      } catch (err) {
+        post({ type: 'stderr', text: formatPythonError(err), cellId })
+      } finally {
+        activeCellId = null
+        post({ type: 'cellDone', cellId })
+      }
+      break
+    }
+
     case 'mountFiles': {
       const contents = new Map(msg.files)
       const { cwd } = msg
@@ -228,8 +260,8 @@ self.onmessage = async (e: MessageEvent<InMessage>) => {
       const { loadPyodide } = await import('pyodide')
       pyodide = await loadPyodide({
         indexURL: PYODIDE_INDEX_URL,
-        stdout: (text: string) => post({ type: 'stdout', text }),
-        stderr: (text: string) => post({ type: 'stderr', text }),
+        stdout: (text: string) => post({ type: 'stdout', text, cellId: activeCellId ?? undefined }),
+        stderr: (text: string) => post({ type: 'stderr', text, cellId: activeCellId ?? undefined }),
       })
       if (msg.interruptBuffer) {
         pyodide.setInterruptBuffer(msg.interruptBuffer)
