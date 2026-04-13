@@ -339,6 +339,7 @@ export function IDE() {
       if (activeFilePath) {
         const fresh = contents.get(activeFilePath)
         if (fresh !== undefined) {
+          editorRef.current?.setModelValue(activeFilePath, fresh)
           setCode(fresh)
           setLastSavedCode(fresh)
         } else {

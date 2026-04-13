@@ -53,6 +53,8 @@ export interface EditorHandle {
   disposeModel(filePath: string): void
   /** Returns the currently selected text, or null if the selection is empty. */
   getSelectedText(): string | null
+  /** Overwrite the content of an existing model (e.g. after reload-from-disk). */
+  setModelValue(filePath: string, content: string): void
 }
 
 interface EditorProps {
@@ -214,6 +216,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (!selection) return null
         const text = editor.getModel()?.getValueInRange(selection) ?? ''
         return text || null
+      },
+      setModelValue(path: string, content: string) {
+        const model = modelsRef.current.get(path)
+        if (model) {
+          model.setValue(content)
+        }
       },
     }),
     [],
