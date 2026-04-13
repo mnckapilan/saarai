@@ -9,6 +9,19 @@ export default defineConfig({
     // Pyodide uses its own module loading system and must not be pre-bundled
     exclude: ['pyodide'],
   },
+  worker: {
+    // Bundle workers as ES modules so dynamic imports work inside them.
+    format: 'es',
+  },
+  server: {
+    headers: {
+      // Cross-origin isolation is required for SharedArrayBuffer (used by the
+      // Pyodide interrupt mechanism). Without these headers, Atomics.store()
+      // is unavailable and the stop fallback (worker termination) is used.
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
   build: {
     rollupOptions: {
       output: {

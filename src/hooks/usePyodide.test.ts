@@ -1,33 +1,62 @@
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { loadPyodide } from 'pyodide'
 import { usePyodide } from './usePyodide'
 
-vi.mock('pyodide', () => ({
-  loadPyodide: vi.fn(),
+// ── Configurable mock worker ──────────────────────────────────────────────────
+// vi.hoisted runs before module evaluation, making these values available
+// inside the vi.mock factory even though vi.mock calls are hoisted.
+const { mockBehavior } = vi.hoisted(() => {
+  const mockBehavior = {
+    initError: false,
+    // If set, the mock sends this text as a stderr line before 'done'.
+    runError: '',
+  }
+  return { mockBehavior }
+})
+
+vi.mock('../pyodide.worker?worker', () => ({
+  default: class MockWorker {
+    onmessage: ((e: MessageEvent) => void) | null = null
+
+    _dispatch(data: object) {
+      // Use setTimeout so state updates land inside act() / waitFor() correctly.
+      setTimeout(() => this.onmessage?.({ data } as MessageEvent), 0)
+    }
+
+    postMessage(msg: { type: string; files?: [string, string][]; cwd?: string }) {
+      switch (msg.type) {
+        case 'init':
+          if (mockBehavior.initError) {
+            this._dispatch({ type: 'error', message: 'CDN error' })
+          } else {
+            this._dispatch({ type: 'ready' })
+          }
+          break
+        case 'run':
+          if (mockBehavior.runError) {
+            this._dispatch({ type: 'stderr', text: mockBehavior.runError })
+          }
+          this._dispatch({ type: 'done' })
+          break
+        case 'mountFiles':
+          this._dispatch({
+            type: 'mounted',
+            count: msg.files?.length ?? 0,
+            cwd: msg.cwd ?? '',
+          })
+          break
+      }
+    }
+
+    terminate() {}
+  },
 }))
 
-function makeMockPyodide() {
-  return {
-    runPython: vi.fn(),
-    runPythonAsync: vi.fn().mockResolvedValue(undefined),
-    globals: { set: vi.fn() },
-    FS: {
-      mkdir: vi.fn(),
-      writeFile: vi.fn(),
-    },
-  }
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
 describe('usePyodide', () => {
-  let mockPy: ReturnType<typeof makeMockPyodide>
-
   beforeEach(() => {
-    mockPy = makeMockPyodide()
-    vi.mocked(loadPyodide).mockResolvedValue(mockPy as never)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
+    mockBehavior.initError = false
+    mockBehavior.runError = ''
   })
 
   it('starts in loading state', () => {
@@ -41,7 +70,7 @@ describe('usePyodide', () => {
   })
 
   it('transitions to error when Pyodide fails to load', async () => {
-    vi.mocked(loadPyodide).mockRejectedValueOnce(new Error('CDN error'))
+    mockBehavior.initError = true
     const { result } = renderHook(() => usePyodide())
     await waitFor(() => expect(result.current.status).toBe('error'))
   })
@@ -55,49 +84,47 @@ describe('usePyodide', () => {
     const { result } = renderHook(() => usePyodide())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
-    await act(async () => {
-      await result.current.runCode('print("hello")')
-    })
-
-    expect(result.current.status).toBe('ready')
+    act(() => { result.current.runCode('print("hello")') })
+    await waitFor(() => expect(result.current.status).toBe('ready'))
   })
 
   it('runCode clears previous output before running', async () => {
-    mockPy.runPythonAsync.mockRejectedValueOnce(new Error('first error'))
-
+    mockBehavior.runError = 'SyntaxError: first error'
     const { result } = renderHook(() => usePyodide())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
-    await act(async () => { await result.current.runCode('bad') })
+    act(() => { result.current.runCode('bad') })
+    await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(result.current.output.length).toBeGreaterThan(0)
 
-    await act(async () => { await result.current.runCode('print("hello")') })
-    // output was cleared at the start of the second run; no stdout from mock
+    mockBehavior.runError = ''
+    act(() => { result.current.runCode('print("hello")') })
+    // Output is cleared synchronously at the start of each run.
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    // No stdout from mock, so output is empty after second run.
     expect(result.current.output).toEqual([])
   })
 
   it('runCode captures Python exceptions as stderr output', async () => {
-    mockPy.runPythonAsync.mockRejectedValueOnce(new Error('NameError: x is not defined'))
-
+    mockBehavior.runError = 'NameError: x is not defined'
     const { result } = renderHook(() => usePyodide())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
-    await act(async () => { await result.current.runCode('bad_code') })
+    act(() => { result.current.runCode('bad_code') })
+    await waitFor(() => expect(result.current.status).toBe('ready'))
 
     expect(result.current.output).toHaveLength(1)
     expect(result.current.output[0].type).toBe('stderr')
     expect(result.current.output[0].text).toContain('NameError')
-    expect(result.current.status).toBe('ready')
   })
 
   it('clearOutput empties the output array', async () => {
-    mockPy.runPythonAsync.mockRejectedValueOnce(new Error('err'))
-
+    mockBehavior.runError = 'err'
     const { result } = renderHook(() => usePyodide())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
-    await act(async () => { await result.current.runCode('x') })
-    expect(result.current.output.length).toBeGreaterThan(0)
+    act(() => { result.current.runCode('x') })
+    await waitFor(() => expect(result.current.output.length).toBeGreaterThan(0))
 
     act(() => { result.current.clearOutput() })
     expect(result.current.output).toEqual([])
@@ -108,11 +135,9 @@ describe('usePyodide', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
     const files = new Map([['project/main.py', 'print("hi")']])
-    await act(async () => {
-      await result.current.mountFiles(files, '/project/project')
-    })
+    act(() => { result.current.mountFiles(files, '/project/project') })
 
-    expect(result.current.output).toHaveLength(1)
+    await waitFor(() => expect(result.current.output).toHaveLength(1))
     expect(result.current.output[0].type).toBe('info')
     expect(result.current.output[0].text).toContain('1 file')
     expect(result.current.output[0].text).toContain('/project/project')
@@ -126,10 +151,8 @@ describe('usePyodide', () => {
       ['project/main.py', 'pass'],
       ['project/utils.py', 'pass'],
     ])
-    await act(async () => {
-      await result.current.mountFiles(files, '/project/project')
-    })
-
+    act(() => { result.current.mountFiles(files, '/project/project') })
+    await waitFor(() => expect(result.current.output).toHaveLength(1))
     expect(result.current.output[0].text).toContain('2 files')
   })
 })

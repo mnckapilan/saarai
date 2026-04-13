@@ -1,0 +1,148 @@
+import type { PyodideInterface } from 'pyodide'
+
+// Pyodide WASM files are loaded from CDN. Version must match the npm package.
+const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
+
+type InMessage =
+  | { type: 'init'; interruptBuffer: Uint8Array | null }
+  | { type: 'run'; code: string; scriptDir?: string }
+  | { type: 'mountFiles'; files: [string, string][]; cwd: string }
+  | { type: 'patchFile'; path: string; content: string }
+
+type OutMessage =
+  | { type: 'ready' }
+  | { type: 'stdout'; text: string }
+  | { type: 'stderr'; text: string }
+  | { type: 'done' }
+  | { type: 'mounted'; count: number; cwd: string }
+  | { type: 'error'; message: string }
+
+function post(msg: OutMessage) {
+  self.postMessage(msg)
+}
+
+let pyodide: PyodideInterface | null = null
+// Messages received before Pyodide finishes loading are queued and replayed.
+const queue: InMessage[] = []
+
+function mkdirP(path: string) {
+  const parts = path.split('/').filter(Boolean)
+  let current = ''
+  for (const part of parts) {
+    current += '/' + part
+    try {
+      pyodide!.FS.mkdir(current)
+    } catch {
+      // EEXIST — already exists, ignore
+    }
+  }
+}
+
+async function handleMessage(msg: InMessage) {
+  switch (msg.type) {
+    case 'run': {
+      const { code, scriptDir } = msg
+      try {
+        // Mirror `python script.py` behaviour: add the script's directory to
+        // sys.path[0] and evict stale user-project modules so edits are seen.
+        pyodide!.globals.set('_script_dir', scriptDir ?? '')
+        pyodide!.runPython(`
+import sys, importlib
+_sd = _script_dir
+if _sd and _sd not in sys.path:
+    sys.path.insert(0, _sd)
+_stale = [k for k, v in sys.modules.items()
+          if getattr(getattr(v, '__spec__', None), 'origin', None)
+          and v.__spec__.origin.startswith('/project/')]
+for _k in _stale:
+    del sys.modules[_k]
+importlib.invalidate_caches()
+del _sd, _stale, _script_dir
+`.trim())
+        await pyodide!.runPythonAsync(code)
+      } catch (err) {
+        post({ type: 'stderr', text: String(err) })
+      }
+      post({ type: 'done' })
+      break
+    }
+
+    case 'mountFiles': {
+      const contents = new Map(msg.files)
+      const { cwd } = msg
+      try {
+        pyodide!.runPython(`
+import shutil, os
+if os.path.exists('/project'):
+    shutil.rmtree('/project')
+os.makedirs('/project')
+`.trim())
+        for (const [path, content] of contents) {
+          const fullPath = `/project/${path}`
+          const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'))
+          mkdirP(dirPath)
+          pyodide!.FS.writeFile(fullPath, content, { encoding: 'utf8' })
+        }
+        pyodide!.globals.set('_mount_cwd', cwd)
+        pyodide!.runPython(`
+import os, sys, importlib
+os.chdir(_mount_cwd)
+if _mount_cwd not in sys.path:
+    sys.path.insert(0, _mount_cwd)
+importlib.invalidate_caches()
+del _mount_cwd
+`.trim())
+        post({ type: 'mounted', count: contents.size, cwd })
+      } catch (err) {
+        console.error('Worker: failed to mount files:', err)
+      }
+      break
+    }
+
+    case 'patchFile': {
+      const { path, content } = msg
+      try {
+        const dirPath = path.substring(0, path.lastIndexOf('/'))
+        mkdirP(dirPath)
+        pyodide!.FS.writeFile(path, content, { encoding: 'utf8' })
+      } catch (err) {
+        console.error('Worker: failed to patch file:', err)
+      }
+      break
+    }
+  }
+}
+
+self.onmessage = async (e: MessageEvent<InMessage>) => {
+  const msg = e.data
+
+  if (msg.type === 'init') {
+    try {
+      const { loadPyodide } = await import('pyodide')
+      pyodide = await loadPyodide({
+        indexURL: PYODIDE_INDEX_URL,
+        stdout: (text: string) => post({ type: 'stdout', text }),
+        stderr: (text: string) => post({ type: 'stderr', text }),
+      })
+      if (msg.interruptBuffer) {
+        pyodide.setInterruptBuffer(msg.interruptBuffer)
+      }
+      post({ type: 'ready' })
+      // Drain any messages that arrived while Pyodide was loading.
+      for (const pending of queue) {
+        await handleMessage(pending)
+      }
+      queue.length = 0
+    } catch (err) {
+      post({ type: 'error', message: String(err) })
+    }
+    return
+  }
+
+  if (!pyodide) {
+    queue.push(msg)
+    return
+  }
+
+  await handleMessage(msg)
+}

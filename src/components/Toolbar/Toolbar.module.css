@@ -279,6 +279,18 @@
   cursor: not-allowed;
 }
 
+.stopButton {
+  background: var(--color-stderr);
+}
+
+.stopButton:hover {
+  background: color-mix(in srgb, var(--color-stderr) 85%, black);
+}
+
+.stopButton:active {
+  background: color-mix(in srgb, var(--color-stderr) 70%, black);
+}
+
 /* ── Theme toggle button ─────────────────────────────────────────────────── */
 
 @keyframes themeSpin {
