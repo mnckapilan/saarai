@@ -97,10 +97,10 @@ test.describe('code execution', () => {
     try {
       await waitForReady(page)
       await page.getByRole('button', { name: 'Run code' }).click()
-      await expect(page.getByRole('log', { name: 'Program output' })).toContainText(
-        'SyntaxError',
-        { timeout: 15_000 },
-      )
+      const output = page.getByRole('log', { name: 'Program output' })
+      await expect(output).toContainText('SyntaxError', { timeout: 15_000 })
+      await expect(output).not.toContainText('PythonError:')
+      await expect(output).not.toContainText('_pyodide')
     } finally {
       unlinkSync(tmpFile)
     }
@@ -111,10 +111,35 @@ test.describe('code execution', () => {
     try {
       await waitForReady(page)
       await page.getByRole('button', { name: 'Run code' }).click()
-      await expect(page.getByRole('log', { name: 'Program output' })).toContainText(
-        'ZeroDivisionError',
-        { timeout: 15_000 },
-      )
+      const output = page.getByRole('log', { name: 'Program output' })
+      await expect(output).toContainText('ZeroDivisionError', { timeout: 15_000 })
+      await expect(output).not.toContainText('PythonError:')
+      await expect(output).not.toContainText('_pyodide')
+    } finally {
+      unlinkSync(tmpFile)
+    }
+  })
+
+  test('traceback shows the real filename instead of <exec>', async ({ page }) => {
+    // The file is named with a known suffix so we can assert it appears in the traceback.
+    const tmpFile = join(tmpdir(), `saarai_exec_${Date.now()}_traceback_test.py`)
+    writeFileSync(tmpFile, 'raise ValueError("traceback filename test")\n')
+    try {
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      const [fileChooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.getByRole('menuitem', { name: 'Open file…' }).click(),
+      ])
+      await fileChooser.setFiles(tmpFile)
+      await page.waitForSelector('.monaco-editor', { timeout: 30_000 })
+
+      await waitForReady(page)
+      await page.getByRole('button', { name: 'Run code' }).click()
+      const output = page.getByRole('log', { name: 'Program output' })
+      await expect(output).toContainText('ValueError', { timeout: 15_000 })
+      // Should show the actual filename, not the generic <exec> placeholder.
+      await expect(output).toContainText('traceback_test.py')
+      await expect(output).not.toContainText('<exec>')
     } finally {
       unlinkSync(tmpFile)
     }
