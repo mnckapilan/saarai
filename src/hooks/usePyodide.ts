@@ -7,6 +7,7 @@ export function usePyodide() {
   const interruptBufferRef = useRef<Uint8Array | null>(null)
   const [status, setStatus] = useState<PyodideStatus>('loading')
   const [output, setOutput] = useState<OutputLine[]>([])
+  const [writtenFiles, setWrittenFiles] = useState<[string, string][] | null>(null)
 
   const appendOutput = useCallback((type: OutputLine['type'], text: string) => {
     setOutput((prev) => [...prev, { type, text, timestamp: Date.now() }])
@@ -36,6 +37,9 @@ export function usePyodide() {
             'info',
             `Mounted ${msg.count} file${msg.count !== 1 ? 's' : ''} — working directory: ${msg.cwd}`,
           )
+          break
+        case 'filesWritten':
+          setWrittenFiles(msg.files)
           break
         case 'error':
           console.error('Pyodide worker error:', msg.message)
@@ -115,5 +119,5 @@ export function usePyodide() {
     workerRef.current.postMessage({ type: 'patchFile', path: memfsPath, content })
   }, [])
 
-  return { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile }
+  return { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile, writtenFiles }
 }

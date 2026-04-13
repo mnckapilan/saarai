@@ -16,6 +16,7 @@ type OutMessage =
   | { type: 'done' }
   | { type: 'mounted'; count: number; cwd: string }
   | { type: 'error'; message: string }
+  | { type: 'filesWritten'; files: [string, string][] }
 
 function post(msg: OutMessage) {
   self.postMessage(msg)
@@ -82,6 +83,39 @@ let pyodide: PyodideInterface | null = null
 // Messages received before Pyodide finishes loading are queued and replayed.
 const queue: InMessage[] = []
 
+// Snapshot of /project/ MEMFS contents taken after each mount or run, used to
+// detect files created or modified by Python code during a run.
+let mountedSnapshot = new Map<string, string>()
+
+function scanMemFS(): Map<string, string> {
+  const result = new Map<string, string>()
+  function walk(dir: string) {
+    let entries: string[]
+    try {
+      entries = pyodide!.FS.readdir(dir) as string[]
+    } catch {
+      return
+    }
+    for (const name of entries) {
+      if (name === '.' || name === '..') continue
+      const full = `${dir}/${name}`
+      try {
+        const stat = pyodide!.FS.stat(full)
+        if (pyodide!.FS.isDir(stat.mode)) {
+          walk(full)
+        } else {
+          const content = pyodide!.FS.readFile(full, { encoding: 'utf8' }) as string
+          result.set(full, content)
+        }
+      } catch {
+        // skip unreadable or binary files
+      }
+    }
+  }
+  walk('/project')
+  return result
+}
+
 function mkdirP(path: string) {
   const parts = path.split('/').filter(Boolean)
   let current = ''
@@ -123,6 +157,18 @@ del _sd, _stale, _script_dir
       } catch (err) {
         post({ type: 'stderr', text: formatPythonError(err) })
       }
+      // Detect files created or modified by the Python run.
+      const current = scanMemFS()
+      const written: [string, string][] = []
+      for (const [path, content] of current) {
+        if (content !== mountedSnapshot.get(path)) {
+          written.push([path, content])
+        }
+      }
+      mountedSnapshot = current
+      if (written.length > 0) {
+        post({ type: 'filesWritten', files: written })
+      }
       post({ type: 'done' })
       break
     }
@@ -152,6 +198,7 @@ if _mount_cwd not in sys.path:
 importlib.invalidate_caches()
 del _mount_cwd
 `.trim())
+        mountedSnapshot = scanMemFS()
         post({ type: 'mounted', count: contents.size, cwd })
       } catch (err) {
         console.error('Worker: failed to mount files:', err)

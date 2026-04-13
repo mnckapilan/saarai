@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { writeFileSync, unlinkSync } from 'fs'
+import { writeFileSync, unlinkSync, mkdtempSync, mkdirSync, readdirSync, rmSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -161,6 +161,27 @@ test.describe('code execution', () => {
     }
   })
 
+  test('Python can write a file and read it back in the same run', async ({ page }) => {
+    const code = [
+      'with open("output.txt", "w") as f:',
+      '    f.write("hello from python")',
+      'with open("output.txt") as f:',
+      '    print(f.read())',
+    ].join('\n')
+    const tmpFile = await openPyFile(page, code)
+    try {
+      await waitForReady(page)
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(page.getByRole('log', { name: 'Program output' })).toContainText(
+        'hello from python',
+        { timeout: 15_000 },
+      )
+    } finally {
+      unlinkSync(tmpFile)
+    }
+  })
+
+
   test('Stop button appears while code is running and interrupts execution', async ({ page }) => {
     // An infinite loop keeps the runtime in 'running' state indefinitely.
     const tmpFile = await openPyFile(page, 'while True:\n    pass\n')
@@ -209,6 +230,190 @@ test.describe('code execution', () => {
       }
     } finally {
       unlinkSync(tmpFile)
+    }
+  })
+})
+
+// Installs a duck-typed showDirectoryPicker mock backed by a real directory on
+// disk. Reads/writes go through Node.js fs functions exposed via exposeFunction,
+// so the FSA layer in the IDE is exercised without a native OS file dialog.
+// Must be called after page.goto() since it uses page.evaluate().
+async function mockShowDirectoryPicker(
+  page: import('@playwright/test').Page,
+  dirPath: string,
+  dirName: string,
+) {
+  await page.evaluate(({ dir, name }) => {
+    function makeFileHandle(fp: string, fn: string): object {
+      return {
+        kind: 'file',
+        name: fn,
+        async getFile() {
+          const content = await (window as any).__fsRead(fp)
+          return new File([content], fn)
+        },
+        async createWritable() {
+          const chunks: string[] = []
+          return {
+            async write(data: string) { chunks.push(typeof data === 'string' ? data : '') },
+            async close() { await (window as any).__fsWrite(fp, chunks.join('')) },
+          }
+        },
+      }
+    }
+    function makeDirHandle(dp: string, dn: string): object {
+      return {
+        kind: 'directory',
+        name: dn,
+        async *entries() {
+          const es = await (window as any).__fsReadDir(dp) as { name: string; isDir: boolean }[]
+          for (const e of es) {
+            const fp = `${dp}/${e.name}`
+            yield [e.name, e.isDir ? makeDirHandle(fp, e.name) : makeFileHandle(fp, e.name)]
+          }
+        },
+        async getFileHandle(n: string, _o: { create?: boolean } = {}) { return makeFileHandle(`${dp}/${n}`, n) },
+        async getDirectoryHandle(n: string, opts: { create?: boolean } = {}) {
+          if (opts?.create) await (window as any).__fsMkdir(`${dp}/${n}`)
+          return makeDirHandle(`${dp}/${n}`, n)
+        },
+        async removeEntry() {},
+      }
+    }
+    ;(window as any).showDirectoryPicker = async () => makeDirHandle(dir, name)
+  }, { dir: dirPath, name: dirName })
+}
+
+// Tests the full disk round-trip: Python writes → FSA syncs to real disk → external
+// edit → Reload picks it up → second Python file reads the updated content.
+// Uses a duck-typed showDirectoryPicker mock backed by a real temp directory so
+// the File System Access API layer is exercised without a native OS file dialog.
+test.describe('disk round-trip via FSA', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem('saarai:welcomeSeen', '1')
+    })
+    // Expose Node.js fs operations to the browser context for the FSA mock.
+    // These must be registered before page.goto().
+    await page.exposeFunction('__fsRead', (p: string) => readFileSync(p, 'utf8'))
+    await page.exposeFunction('__fsWrite', (p: string, c: string) => { writeFileSync(p, c) })
+    await page.exposeFunction('__fsReadDir', (p: string) => {
+      try {
+        return readdirSync(p, { withFileTypes: true }).map(e => ({ name: e.name, isDir: e.isDirectory() }))
+      } catch { return [] }
+    })
+    await page.exposeFunction('__fsMkdir', (p: string) => mkdirSync(p, { recursive: true }))
+    await page.goto('/')
+    await page.getByRole('button', { name: 'File', exact: true }).waitFor()
+  })
+
+  test('Python writes a file to disk; external edit is picked up on reload; second script reads updated content', async ({ page }) => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'saarai_fsa_'))
+    const projectDir = join(tmpDir, 'myproject')
+    mkdirSync(projectDir)
+    writeFileSync(join(projectDir, 'writer.py'), 'open("data.txt", "w").write("from python")\nprint("wrote")\n')
+    writeFileSync(join(projectDir, 'reader.py'), 'print(open("data.txt").read())\n')
+
+    try {
+      await mockShowDirectoryPicker(page, projectDir, 'myproject')
+
+      // Open folder — triggers our mocked showDirectoryPicker, no OS dialog.
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Open folder…' }).click()
+      await waitForReady(page)
+      await expect(page.getByText('writer.py', { exact: true })).toBeVisible({ timeout: 10_000 })
+
+      // Run writer.py → writes data.txt to MEMFS and real disk via FSA mock.
+      await page.getByText('writer.py', { exact: true }).click()
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(page.getByRole('log', { name: 'Program output' })).toContainText('wrote', { timeout: 15_000 })
+
+      // Wait until the mock has flushed data.txt to the real filesystem.
+      await expect(page.getByText('data.txt', { exact: true })).toBeVisible({ timeout: 5_000 })
+      await expect.poll(
+        () => page.evaluate(async (p: string) => {
+          try { return await (window as any).__fsRead(p) } catch { return null }
+        }, join(projectDir, 'data.txt')),
+        { timeout: 5_000 },
+      ).toBe('from python')
+
+      // Make data.txt the active file BEFORE reloading. handleReload will then call
+      // setCode(fresh) automatically, updating the editor — a reliable completion signal.
+      await page.getByText('data.txt', { exact: true }).click()
+
+      // External edit: overwrite data.txt on disk (simulates editing outside the IDE).
+      writeFileSync(join(projectDir, 'data.txt'), 'updated by test')
+
+      // Override window.confirm so the Reload dialog auto-accepts without a native
+      // OS dialog (page.once('dialog') is unreliable when confirm() fires async).
+      await page.evaluate(() => { window.confirm = () => true })
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Reload from disk' }).click()
+
+      // handleReload re-reads the folder and calls setCode('updated by test') since
+      // data.txt is the active file. Poll Monaco until the editor reflects the new
+      // content — this confirms contentMapRef is updated and mountFiles was posted.
+      await expect.poll(
+        () => page.evaluate(() => {
+          const monaco = (window as any).monaco
+          return monaco?.editor?.getEditors()[0]?.getModel()?.getValue()
+        }),
+        { timeout: 10_000 },
+      ).toBe('updated by test')
+
+      // Run reader.py — mountFiles is already in the worker queue (posted before setCode),
+      // so the run message is processed after MEMFS is updated. No explicit wait needed.
+      await page.getByText('reader.py', { exact: true }).click()
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(page.getByRole('log', { name: 'Program output' })).toContainText(
+        'updated by test',
+        { timeout: 15_000 },
+      )
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true })
+    }
+  })
+
+  test('file written by Python can be edited in Monaco and the updated content is read by a second script without reloading', async ({ page }) => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'saarai_fsa_'))
+    const projectDir = join(tmpDir, 'myproject')
+    mkdirSync(projectDir)
+    writeFileSync(join(projectDir, 'writer.py'), 'open("data.txt", "w").write("from python")\nprint("wrote")\n')
+    writeFileSync(join(projectDir, 'reader.py'), 'print(open("data.txt").read())\n')
+
+    try {
+      await mockShowDirectoryPicker(page, projectDir, 'myproject')
+
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Open folder…' }).click()
+      await waitForReady(page)
+      await expect(page.getByText('writer.py', { exact: true })).toBeVisible({ timeout: 10_000 })
+
+      // Run writer.py → data.txt is written to MEMFS and appears in the file tree.
+      await page.getByText('writer.py', { exact: true }).click()
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(page.getByRole('log', { name: 'Program output' })).toContainText('wrote', { timeout: 15_000 })
+      await expect(page.getByText('data.txt', { exact: true })).toBeVisible({ timeout: 5_000 })
+
+      // Open data.txt in Monaco and replace its content.
+      await page.getByText('data.txt', { exact: true }).click()
+      await page.locator('.monaco-editor').click()
+      await page.keyboard.press('Control+a')
+      await page.keyboard.type('edited in monaco')
+
+      // Save (patches MEMFS so the next Python run sees the updated content).
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Save' }).click()
+
+      // Run reader.py — no reload needed; patchFile already updated MEMFS.
+      await page.getByText('reader.py', { exact: true }).click()
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(page.getByRole('log', { name: 'Program output' })).toContainText(
+        'edited in monaco',
+        { timeout: 15_000 },
+      )
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true })
     }
   })
 })

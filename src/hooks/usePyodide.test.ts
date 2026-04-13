@@ -9,6 +9,8 @@ const { mockBehavior } = vi.hoisted(() => {
     initError: false,
     // If set, the mock sends this text as a stderr line before 'done'.
     runError: '',
+    // If non-empty, the mock sends a filesWritten message before 'done'.
+    writtenFiles: [] as [string, string][],
   }
   return { mockBehavior }
 })
@@ -35,6 +37,9 @@ vi.mock('../pyodide.worker?worker', () => ({
           if (mockBehavior.runError) {
             this._dispatch({ type: 'stderr', text: mockBehavior.runError })
           }
+          if (mockBehavior.writtenFiles.length > 0) {
+            this._dispatch({ type: 'filesWritten', files: mockBehavior.writtenFiles })
+          }
           this._dispatch({ type: 'done' })
           break
         case 'mountFiles':
@@ -57,6 +62,7 @@ describe('usePyodide', () => {
   beforeEach(() => {
     mockBehavior.initError = false
     mockBehavior.runError = ''
+    mockBehavior.writtenFiles = []
   })
 
   it('starts in loading state', () => {
@@ -154,5 +160,31 @@ describe('usePyodide', () => {
     act(() => { result.current.mountFiles(files, '/project/project') })
     await waitFor(() => expect(result.current.output).toHaveLength(1))
     expect(result.current.output[0].text).toContain('2 files')
+  })
+
+  it('writtenFiles is null initially', () => {
+    const { result } = renderHook(() => usePyodide())
+    expect(result.current.writtenFiles).toBeNull()
+  })
+
+  it('writtenFiles is populated when the worker reports files written during a run', async () => {
+    mockBehavior.writtenFiles = [['/project/myproject/output.txt', 'hello']]
+    const { result } = renderHook(() => usePyodide())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    act(() => { result.current.runCode('open("output.txt", "w").write("hello")') })
+    await waitFor(() => expect(result.current.writtenFiles).not.toBeNull())
+
+    expect(result.current.writtenFiles).toEqual([['/project/myproject/output.txt', 'hello']])
+  })
+
+  it('writtenFiles is not set when no files are written during a run', async () => {
+    const { result } = renderHook(() => usePyodide())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    act(() => { result.current.runCode('print("hello")') })
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    expect(result.current.writtenFiles).toBeNull()
   })
 })
