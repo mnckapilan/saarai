@@ -587,7 +587,7 @@ export function IDE() {
         }
       : undefined
 
-  useKeyboardShortcut({ key: 'Enter', metaOrCtrl: true }, handleRun)
+  useKeyboardShortcut({ key: 'Enter', metaOrCtrl: true }, isNotebook ? () => {} : handleRun)
   useKeyboardShortcut({ key: 's', metaOrCtrl: true }, handleManualSave)
 
   return (

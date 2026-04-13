@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react'
 import { HydratedCell, PyodideStatus } from '../../types'
 import { toSourceLines } from '../../utils/ipynb'
 import { NotebookCell } from './NotebookCell'
@@ -51,6 +52,32 @@ export function NotebookView({
   // Add a new code cell at the end (after the last cell if any)
   const lastCellId = cells.length > 0 ? cells[cells.length - 1].id : ''
 
+  const focusCellRef = useRef<Map<string, () => void>>(new Map())
+
+  const registerFocus = useCallback((cellId: string, fn: () => void) => {
+    focusCellRef.current.set(cellId, fn)
+  }, [])
+
+  const handleRunAndAdvance = useCallback((cellId: string) => {
+    onRunCell(cellId)
+    const idx = cells.findIndex((c) => c.id === cellId)
+    const next = cells[idx + 1]
+    if (next) {
+      // Small delay to let the cell re-render before focusing
+      setTimeout(() => focusCellRef.current.get(next.id)?.(), 0)
+    } else {
+      // On the last cell, add a new code cell and focus it after mount
+      onAddCodeAfter(cellId)
+      // The new cell will register itself via registerFocus when it mounts;
+      // focus it after a brief paint delay
+      setTimeout(() => {
+        const keys = [...focusCellRef.current.keys()]
+        const newId = keys[keys.length - 1]
+        if (newId) focusCellRef.current.get(newId)?.()
+      }, 50)
+    }
+  }, [cells, onRunCell, onAddCodeAfter])
+
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
@@ -77,6 +104,8 @@ export function NotebookView({
               onUpdateSource(cell.id, toSourceLines(rawSource))
             }
             onRun={() => onRunCell(cell.id)}
+            onRunAndAdvance={() => handleRunAndAdvance(cell.id)}
+            registerFocus={(fn) => registerFocus(cell.id, fn)}
             onDelete={() => onDeleteCell(cell.id)}
             onAddCodeAfter={() => onAddCodeAfter(cell.id)}
             onAddMarkdownAfter={() => onAddMarkdownAfter(cell.id)}
