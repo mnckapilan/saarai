@@ -112,7 +112,7 @@ function buildFileTreeFromPaths(filePaths: string[], extraDirPaths: string[] = [
 
 export function IDE() {
   const [code, setCode] = useState('')
-  const { status, output, runCode, clearOutput, mountFiles, patchFile } = usePyodide()
+  const { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile } = usePyodide()
   const { font, setFont } = useFont()
   const { fontSize, setFontSize } = useFontSize()
   const { theme, toggleTheme } = useTheme()
@@ -535,6 +535,7 @@ export function IDE() {
       <Toolbar
         status={status}
         onRun={handleRun}
+        onStop={interrupt}
         fileOpen={activeFilePath !== null && activeFilePath.endsWith('.py')}
         hasEditorSelection={hasEditorSelection}
         onImport={handleImportClick}

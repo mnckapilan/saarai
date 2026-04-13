@@ -7,6 +7,8 @@ import styles from './Toolbar.module.css'
 interface ToolbarProps {
   status: PyodideStatus
   onRun: () => void
+  /** Stops the running Python execution. */
+  onStop: () => void
   /** Whether a file is currently open in the editor. */
   fileOpen?: boolean
   /** Whether the editor currently has a non-empty text selection. */
@@ -62,6 +64,14 @@ function PlayIcon() {
   return (
     <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor" aria-hidden="true">
       <path d="M2 1.5l8 4-8 4V1.5z" />
+    </svg>
+  )
+}
+
+function StopIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+      <rect x="1" y="1" width="8" height="8" rx="1" />
     </svg>
   )
 }
@@ -253,7 +263,7 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 }
 
 export function Toolbar({
-  status, onRun, fileOpen = false, hasEditorSelection = false,
+  status, onRun, onStop, fileOpen = false, hasEditorSelection = false,
   onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
   font, onFontChange, fontSize, onFontSizeChange,
   theme, onThemeToggle, onOpenSettings, onAbout,
@@ -325,16 +335,28 @@ export function Toolbar({
           {status === 'ready' && <span className={styles.statusReady}>● Ready</span>}
           {isError && <span className={styles.statusError}>● Runtime error</span>}
         </div>
-        <button
-          className={styles.runButton}
-          onClick={onRun}
-          disabled={disabled}
-          title={hasEditorSelection ? 'Run selection (⌘↵ / Ctrl+↵)' : 'Run code (⌘↵ / Ctrl+↵)'}
-          aria-label={hasEditorSelection ? 'Run selection' : 'Run code'}
-        >
-          <PlayIcon />
-          {hasEditorSelection ? 'Run selection' : 'Run'}
-        </button>
+        {isRunning ? (
+          <button
+            className={`${styles.runButton} ${styles.stopButton}`}
+            onClick={onStop}
+            title="Stop execution"
+            aria-label="Stop execution"
+          >
+            <StopIcon />
+            Stop
+          </button>
+        ) : (
+          <button
+            className={styles.runButton}
+            onClick={onRun}
+            disabled={disabled}
+            title={hasEditorSelection ? 'Run selection (⌘↵ / Ctrl+↵)' : 'Run code (⌘↵ / Ctrl+↵)'}
+            aria-label={hasEditorSelection ? 'Run selection' : 'Run code'}
+          >
+            <PlayIcon />
+            {hasEditorSelection ? 'Run selection' : 'Run'}
+          </button>
+        )}
       </div>
 
     </header>

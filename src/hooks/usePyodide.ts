@@ -1,199 +1,119 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PyodideInterface } from 'pyodide'
 import { OutputLine, PyodideStatus } from '../types'
-
-// Pyodide WASM files are loaded from CDN to avoid bundling ~10MB of assets.
-// This version must match the installed npm package version.
-const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
-
-// Create a directory and all missing ancestors in Pyodide's MEMFS.
-function mkdirP(pyodide: PyodideInterface, path: string) {
-  const parts = path.split('/').filter(Boolean)
-  let current = ''
-  for (const part of parts) {
-    current += '/' + part
-    try {
-      pyodide.FS.mkdir(current)
-    } catch {
-      // EEXIST — directory already exists, ignore
-    }
-  }
-}
+import PyodideWorker from '../pyodide.worker?worker'
 
 export function usePyodide() {
-  const pyodideRef = useRef<PyodideInterface | null>(null)
+  const workerRef = useRef<Worker | null>(null)
+  const interruptBufferRef = useRef<Uint8Array | null>(null)
   const [status, setStatus] = useState<PyodideStatus>('loading')
   const [output, setOutput] = useState<OutputLine[]>([])
 
-  const appendOutput = (type: OutputLine['type'], text: string) => {
+  const appendOutput = useCallback((type: OutputLine['type'], text: string) => {
     setOutput((prev) => [...prev, { type, text, timestamp: Date.now() }])
-  }
+  }, [])
 
-  useEffect(() => {
-    let cancelled = false
+  const initWorker = useCallback(() => {
+    const worker = new PyodideWorker()
+    workerRef.current = worker
 
-    async function init() {
-      try {
-        const { loadPyodide } = await import('pyodide')
-        const pyodide = await loadPyodide({
-          indexURL: PYODIDE_INDEX_URL,
-          stdout: (text: string) => {
-            if (!cancelled) appendOutput('stdout', text)
-          },
-          stderr: (text: string) => {
-            if (!cancelled) appendOutput('stderr', text)
-          },
-        })
-        if (!cancelled) {
-          pyodideRef.current = pyodide
+    worker.onmessage = (e: MessageEvent) => {
+      const msg = e.data
+      switch (msg.type) {
+        case 'ready':
           setStatus('ready')
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Failed to initialise Pyodide:', err)
+          break
+        case 'stdout':
+          appendOutput('stdout', msg.text)
+          break
+        case 'stderr':
+          appendOutput('stderr', msg.text)
+          break
+        case 'done':
+          setStatus('ready')
+          break
+        case 'mounted':
+          appendOutput(
+            'info',
+            `Mounted ${msg.count} file${msg.count !== 1 ? 's' : ''} — working directory: ${msg.cwd}`,
+          )
+          break
+        case 'error':
+          console.error('Pyodide worker error:', msg.message)
           setStatus('error')
-        }
+          break
       }
     }
 
-    init()
-    return () => {
-      cancelled = true
+    // SharedArrayBuffer requires cross-origin isolation (COOP + COEP headers).
+    // When available, it enables low-overhead interrupt via Atomics.store().
+    let interruptBuffer: Uint8Array | null = null
+    if (typeof SharedArrayBuffer !== 'undefined') {
+      interruptBuffer = new Uint8Array(new SharedArrayBuffer(1))
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    interruptBufferRef.current = interruptBuffer
+    worker.postMessage({ type: 'init', interruptBuffer })
+  }, [appendOutput])
 
-  // scriptDir: the MEMFS directory of the file being run (e.g. "/project/myproject/src").
-  // Python adds the script's own directory to sys.path[0] when you run a file normally;
-  // we replicate that behaviour so that sibling-module imports work correctly.
+  useEffect(() => {
+    initWorker()
+    return () => {
+      workerRef.current?.terminate()
+    }
+  }, [initWorker])
+
   const runCode = useCallback(
     async (code: string, scriptDir?: string) => {
-      const pyodide = pyodideRef.current
-      if (!pyodide || status !== 'ready') return
+      if (!workerRef.current || status !== 'ready') return
+
+      // Reset any pending interrupt flag before starting a new run.
+      const buf = interruptBufferRef.current
+      if (buf) Atomics.store(buf, 0, 0)
 
       setStatus('running')
       setOutput([])
-
-      try {
-        // Ensure the script's directory is on sys.path (mirrors `python script.py` behaviour)
-        // and invalidate the importer cache so newly written MEMFS files are visible.
-        pyodide.globals.set('_script_dir', scriptDir ?? '')
-        pyodide.runPython(`
-import sys, importlib
-_sd = _script_dir
-if _sd and _sd not in sys.path:
-    sys.path.insert(0, _sd)
-# Evict user-project modules so edits are picked up without remounting.
-_stale = [k for k, v in sys.modules.items()
-          if getattr(getattr(v, '__spec__', None), 'origin', None)
-          and v.__spec__.origin.startswith('/project/')]
-for _k in _stale:
-    del sys.modules[_k]
-importlib.invalidate_caches()
-del _sd, _stale, _script_dir
-`.trim())
-
-        await pyodide.runPythonAsync(code)
-      } catch (err) {
-        // PythonError includes the full Python traceback in its message
-        setOutput((prev) => [
-          ...prev,
-          { type: 'stderr', text: String(err), timestamp: Date.now() },
-        ])
-      } finally {
-        setStatus('ready')
-      }
+      workerRef.current.postMessage({ type: 'run', code, scriptDir })
     },
     [status],
   )
 
-  const clearOutput = useCallback(() => setOutput([]), [])
-
-  // Write a single file into MEMFS without remounting the whole project.
-  // Called after save so that the next run sees the saved content.
-  const patchFile = useCallback((memfsPath: string, content: string) => {
-    const pyodide = pyodideRef.current
-    if (!pyodide) return
-    try {
-      const dirPath = memfsPath.substring(0, memfsPath.lastIndexOf('/'))
-      mkdirP(pyodide, dirPath)
-      pyodide.FS.writeFile(memfsPath, content, { encoding: 'utf8' })
-    } catch (err) {
-      console.error('Failed to patch file in MEMFS:', err)
-    }
-  }, [])
-
-  // Write a set of files into Pyodide's MEMFS under /project/ and set the
-  // Python working directory so that relative imports and open() calls work.
-  //
-  // contents: path → text content  (e.g. "myproject/utils/helper.py" → "...")
-  // cwd:      absolute MEMFS path to chdir into (e.g. "/project/myproject")
-  //
-  // If Pyodide is still loading, this waits up to 30 s before giving up.
-  const mountFiles = useCallback(async (contents: Map<string, string>, cwd: string) => {
-    // Wait for Pyodide to finish loading if necessary
-    if (!pyodideRef.current) {
-      await new Promise<void>((resolve) => {
-        const check = setInterval(() => {
-          if (pyodideRef.current) {
-            clearInterval(check)
-            resolve()
-          }
-        }, 100)
-        setTimeout(() => {
-          clearInterval(check)
-          resolve()
-        }, 30_000)
-      })
-    }
-
-    const pyodide = pyodideRef.current
-    if (!pyodide) return
-
-    try {
-      // Wipe any previous project mount and recreate the base directory
-      pyodide.runPython(`
-import shutil, os
-if os.path.exists('/project'):
-    shutil.rmtree('/project')
-os.makedirs('/project')
-`.trim())
-
-      // Write every file, creating parent directories as needed
-      for (const [path, content] of contents) {
-        const fullPath = `/project/${path}`
-        const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'))
-        mkdirP(pyodide, dirPath)
-        pyodide.FS.writeFile(fullPath, content, { encoding: 'utf8' })
-      }
-
-      // Set cwd, add it to sys.path, and flush Python's importer caches so
-      // newly written MEMFS files are discoverable on the next import.
-      // Without invalidate_caches(), sys.path_importer_cache retains a
-      // pre-mount snapshot and raises ModuleNotFoundError even when the file
-      // is physically present.
-      pyodide.globals.set('_mount_cwd', cwd)
-      pyodide.runPython(`
-import os, sys, importlib
-os.chdir(_mount_cwd)
-if _mount_cwd not in sys.path:
-    sys.path.insert(0, _mount_cwd)
-importlib.invalidate_caches()
-del _mount_cwd
-`.trim())
-
-      const n = contents.size
-      setOutput((prev) => [
-        ...prev,
+  const interrupt = useCallback(() => {
+    const buf = interruptBufferRef.current
+    if (buf) {
+      // Signal Pyodide to raise KeyboardInterrupt between Python opcodes.
+      Atomics.store(buf, 0, 2)
+    } else {
+      // Fallback when SharedArrayBuffer is unavailable: terminate the worker.
+      // MEMFS state is lost; the user will need to re-open their project files.
+      workerRef.current?.terminate()
+      setStatus('loading')
+      setOutput([
         {
           type: 'info',
-          text: `Mounted ${n} file${n !== 1 ? 's' : ''} — working directory: ${cwd}`,
+          text: 'Execution stopped. Runtime is restarting — please re-open your project files.',
           timestamp: Date.now(),
         },
       ])
-    } catch (err) {
-      console.error('Failed to mount files into Pyodide FS:', err)
+      initWorker()
     }
+  }, [initWorker])
+
+  const clearOutput = useCallback(() => setOutput([]), [])
+
+  // Post a mountFiles message to the worker. The worker queues it if Pyodide
+  // is still loading and processes it once ready, so no polling is needed here.
+  const mountFiles = useCallback(async (contents: Map<string, string>, cwd: string) => {
+    if (!workerRef.current) return
+    workerRef.current.postMessage({
+      type: 'mountFiles',
+      files: Array.from(contents.entries()),
+      cwd,
+    })
   }, [])
 
-  return { status, output, runCode, clearOutput, mountFiles, patchFile }
+  const patchFile = useCallback((memfsPath: string, content: string) => {
+    if (!workerRef.current) return
+    workerRef.current.postMessage({ type: 'patchFile', path: memfsPath, content })
+  }, [])
+
+  return { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile }
 }

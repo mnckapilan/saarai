@@ -8,6 +8,7 @@ function renderToolbar(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
   const props = {
     status: 'ready' as PyodideStatus,
     onRun: vi.fn(),
+    onStop: vi.fn(),
     onImport: vi.fn(),
     onOpenFolder: vi.fn(),
     font: DEFAULT_FONT,
@@ -62,9 +63,17 @@ describe('Toolbar — Run button', () => {
     expect(screen.getByRole('button', { name: /Run code/i })).toBeDisabled()
   })
 
-  it('is disabled when status is running', () => {
+  it('shows a Stop button instead of Run when status is running', () => {
     renderToolbar({ status: 'running', fileOpen: true })
-    expect(screen.getByRole('button', { name: /Run code/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Run code/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Stop execution/i })).toBeInTheDocument()
+  })
+
+  it('calls onStop when the Stop button is clicked while running', async () => {
+    const onStop = vi.fn()
+    renderToolbar({ status: 'running', fileOpen: true, onStop })
+    await userEvent.click(screen.getByRole('button', { name: /Stop execution/i }))
+    expect(onStop).toHaveBeenCalledOnce()
   })
 
   it('is disabled when status is error', () => {
