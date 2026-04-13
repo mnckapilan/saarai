@@ -7,6 +7,8 @@ interface NotebookCellProps {
   cell: HydratedCell
   onUpdateSource: (source: string) => void
   onRun: () => void
+  onRunAndAdvance: () => void
+  registerFocus: (fn: () => void) => void
   onDelete: () => void
   onAddCodeAfter: () => void
   onAddMarkdownAfter: () => void
@@ -21,6 +23,8 @@ export function NotebookCell({
   cell,
   onUpdateSource,
   onRun,
+  onRunAndAdvance,
+  registerFocus,
   onDelete,
   onAddCodeAfter,
   onAddMarkdownAfter,
@@ -80,6 +84,8 @@ export function NotebookCell({
           cell={cell}
           onUpdateSource={onUpdateSource}
           onRun={onRun}
+          onRunAndAdvance={onRunAndAdvance}
+          registerFocus={registerFocus}
           monacoTheme={monacoTheme}
           fontFamily={fontFamily}
           fontSize={fontSize}

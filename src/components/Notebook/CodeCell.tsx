@@ -10,12 +10,14 @@ interface CodeCellProps {
   cell: HydratedCell
   onUpdateSource: (source: string) => void
   onRun: () => void
+  onRunAndAdvance: () => void
+  registerFocus: (fn: () => void) => void
   monacoTheme: string
   fontFamily: string
   fontSize: number
 }
 
-export function CodeCell({ cell, onUpdateSource, onRun, monacoTheme, fontFamily, fontSize }: CodeCellProps) {
+export function CodeCell({ cell, onUpdateSource, onRun, onRunAndAdvance, registerFocus, monacoTheme, fontFamily, fontSize }: CodeCellProps) {
   const minHeight = Math.ceil(fontSize * 1.5 * 3)
   const [height, setHeight] = useState(minHeight)
 
@@ -26,8 +28,14 @@ export function CodeCell({ cell, onUpdateSource, onRun, monacoTheme, fontFamily,
   const onRunRef = useRef(onRun)
   useEffect(() => { onRunRef.current = onRun }, [onRun])
 
+  const onRunAndAdvanceRef = useRef(onRunAndAdvance)
+  useEffect(() => { onRunAndAdvanceRef.current = onRunAndAdvance }, [onRunAndAdvance])
+
   const handleMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+      // Register focus callback so NotebookView can focus this cell programmatically
+      registerFocus(() => editorInstance.focus())
+
       editorInstance.onDidContentSizeChange(() => {
         setHeight(Math.max(minHeight, Math.min(400, editorInstance.getContentHeight())))
       })
@@ -35,12 +43,12 @@ export function CodeCell({ cell, onUpdateSource, onRun, monacoTheme, fontFamily,
       // Set initial height
       setHeight(Math.max(minHeight, Math.min(400, editorInstance.getContentHeight())))
 
-      // Ctrl+Enter / Cmd+Enter
+      // Cmd+Enter: run cell, stay
       editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRunRef.current())
-      // Shift+Enter
-      editorInstance.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => onRunRef.current())
+      // Shift+Enter: run cell, advance to next
+      editorInstance.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => onRunAndAdvanceRef.current())
     },
-    [minHeight],
+    [minHeight, registerFocus],
   )
 
   return (
