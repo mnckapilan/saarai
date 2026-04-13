@@ -10,7 +10,10 @@ export function WelcomeModal({ onClose }: WelcomeModalProps) {
 
   useEffect(() => {
     const dialog = dialogRef.current
-    if (dialog && !dialog.open) dialog.showModal()
+    if (dialog && !dialog.open) {
+      dialog.showModal()
+      dialog.querySelector('button')?.focus()
+    }
   }, [])
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
@@ -114,7 +117,7 @@ export function WelcomeModal({ onClose }: WelcomeModalProps) {
             <GitHubIcon />
             View on GitHub
           </a>
-          <button className={styles.closeButton} onClick={onClose} autoFocus>
+          <button className={styles.closeButton} onClick={onClose}>
             Get started
           </button>
         </footer>
