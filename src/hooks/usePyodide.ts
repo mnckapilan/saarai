@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { OutputLine, PyodideStatus } from '../types'
-import PyodideWorker from '../pyodide.worker?worker&inline'
+import PyodideWorker from '../pyodide.worker?worker'
 
 export function usePyodide() {
   const workerRef = useRef<Worker | null>(null)
