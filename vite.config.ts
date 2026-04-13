@@ -19,7 +19,7 @@ export default defineConfig({
       // Pyodide interrupt mechanism). Without these headers, Atomics.store()
       // is unavailable and the stop fallback (worker termination) is used.
       'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
     },
   },
   build: {
