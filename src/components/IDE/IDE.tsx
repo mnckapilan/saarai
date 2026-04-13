@@ -173,7 +173,11 @@ export function IDE() {
       ? `/project/${activeFilePath.slice(0, activeFilePath.lastIndexOf('/'))}`
       : undefined
     const selectedText = editorRef.current?.getSelectedText()
-    runCode(selectedText ?? code, scriptDir)
+    // Only pass the MEMFS path as the filename when running the whole file.
+    // For selections line numbers would be wrong, so omit it (falls back to
+    // <stdin> in the worker) to avoid misleading tracebacks.
+    const scriptPath = !selectedText && activeFilePath ? `/project/${activeFilePath}` : undefined
+    runCode(selectedText ?? code, scriptDir, scriptPath)
   }, [code, runCode, activeFilePath])
 
   const handleImportClick = useCallback(() => {
