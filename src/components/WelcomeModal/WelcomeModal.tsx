@@ -31,6 +31,7 @@ export function WelcomeModal({ onClose }: WelcomeModalProps) {
           <div>
             <h1 id="welcome-title" className={styles.title}>Saarai</h1>
             <p className={styles.subtitle}>A browser-based Python IDE — no installation required</p>
+            <p className={styles.nameOrigin}>Named after <em>saarai paambu</em> (சாரைப்பாம்பு) — a Tamil word for a type of snake, keeping with the Python theme</p>
           </div>
         </header>
 
