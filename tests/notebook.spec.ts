@@ -171,26 +171,36 @@ test.describe('notebook keyboard shortcuts', () => {
     await page.getByRole('button', { name: 'File', exact: true }).waitFor()
   })
 
-  test('Shift+Enter runs the focused cell', async ({ page }) => {
+  test('Shift+Enter runs the focused cell and moves focus to the next cell', async ({ page }) => {
+    // Open a notebook with 2 code cells. Focus cell 1, press Shift+Enter — it
+    // should run cell 1 AND move focus to cell 2. Then pressing Shift+Enter
+    // again should run cell 2 (confirming focus moved).
     const tmpFile = await openNotebook(page, [
-      { cell_type: 'code', source: ["print('shift enter works')"] },
+      { cell_type: 'code', source: ["print('cell one')"] },
+      { cell_type: 'code', source: ["print('cell two')"] },
     ])
     try {
       await waitForReady(page)
 
-      // Click the editorWrapper div to give focus to the Monaco editor inside it.
-      await page.locator('[class*="editorWrapper"]').click()
+      // Click the first cell's editorWrapper to focus its Monaco editor.
+      await page.locator('[class*="editorWrapper"]').first().click()
 
+      // Shift+Enter: run cell 1 and advance focus to cell 2.
       await page.keyboard.press('Shift+Enter')
 
-      const cellOutput = page.getByRole('log', { name: 'Cell output' })
-      await expect(cellOutput).toContainText('shift enter works', { timeout: 15_000 })
+      const cellOutputs = page.getByRole('log', { name: 'Cell output' })
+      await expect(cellOutputs.first()).toContainText('cell one', { timeout: 15_000 })
+
+      // Press Shift+Enter again — focus should now be on cell 2, so this runs cell 2.
+      await page.keyboard.press('Shift+Enter')
+      await expect(cellOutputs.last()).toContainText('cell two', { timeout: 15_000 })
     } finally {
       unlinkSync(tmpFile)
     }
   })
 
   test('Cmd+Enter runs the focused cell', async ({ page }) => {
+    // Cmd+Enter runs the cell and stays focused on it (no focus change).
     const tmpFile = await openNotebook(page, [
       { cell_type: 'code', source: ["print('cmd enter works')"] },
     ])
@@ -239,7 +249,59 @@ test.describe('notebook keyboard shortcuts', () => {
     }
   })
 
-  // Test 4: 'keyboard shortcut does not run when Pyodide is not ready'
+  test('Shift+Enter on last cell adds a new cell', async ({ page }) => {
+    const tmpFile = await openNotebook(page, [
+      { cell_type: 'code', source: ["print('only cell')"] },
+    ])
+    try {
+      await waitForReady(page)
+
+      // There is only 1 cell to begin with.
+      const cellWrappers = page.locator('[class*="cellWrapper"]')
+      await expect(cellWrappers).toHaveCount(1, { timeout: 5_000 })
+
+      // Focus the single cell's editor and press Shift+Enter.
+      await page.locator('[class*="editorWrapper"]').click()
+      await page.keyboard.press('Shift+Enter')
+
+      // Wait for the cell to run (output appears).
+      const cellOutput = page.getByRole('log', { name: 'Cell output' })
+      await expect(cellOutput).toContainText('only cell', { timeout: 15_000 })
+
+      // A new empty cell should have been added automatically.
+      await expect(cellWrappers).toHaveCount(2, { timeout: 5_000 })
+    } finally {
+      unlinkSync(tmpFile)
+    }
+  })
+
+  test('global Cmd+Enter does not trigger file-level run in notebook mode', async ({ page }) => {
+    // When a notebook is open, the global Cmd+Enter shortcut is suppressed so
+    // it doesn't dispatch a runCode() call on the main OutputPanel.
+    const tmpFile = await openNotebook(page, [
+      { cell_type: 'code', source: ["print('should not appear in main output')"] },
+    ])
+    try {
+      await waitForReady(page)
+
+      // Press Meta+Enter at the page level (not inside any Monaco editor) so
+      // the global keyboard shortcut handler fires.
+      await page.keyboard.press('Meta+Enter')
+
+      // The main OutputPanel has role="log" aria-label="Program output".
+      // In notebook mode it is not rendered in the DOM at all, so it should
+      // not be found — or if found should have no content.
+      const mainOutput = page.getByRole('log', { name: 'Program output' })
+      // Give a moment for any erroneous run to produce output.
+      await page.waitForTimeout(500)
+      // The main output panel should not be present (it's hidden in notebook mode).
+      await expect(mainOutput).toHaveCount(0)
+    } finally {
+      unlinkSync(tmpFile)
+    }
+  })
+
+  // Test 4 (legacy): 'keyboard shortcut does not run when Pyodide is not ready'
   //
   // This test is intentionally omitted. It is not reliably testable without a
   // race condition: Pyodide begins loading immediately on page load and can
