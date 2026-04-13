@@ -29,7 +29,8 @@ function formatPythonError(err: unknown): string {
     }
   }
 
-  const result = out.join('\n').replace(/^Traceback \(most recent call last\):\s*\n(?=\w)/, '')
+  const cleaned = out.join('\n').replace(/File "\/project\//g, 'File "')
+  const result = cleaned.replace(/^Traceback \(most recent call last\):\s*\n(?=\w)/, '')
 
   return result.trim()
 }
@@ -109,6 +110,24 @@ describe('formatPythonError', () => {
     const result = formatPythonError(input)
     expect(result).not.toMatch(/^Traceback/)
     expect(result).toBe('KeyboardInterrupt')
+  })
+
+  it('strips /project/ MEMFS prefix from file paths', () => {
+    const input = [
+      'PythonError: Traceback (most recent call last):',
+      '  File "/lib/python312.zip/_pyodide/_base.py", line 597, in eval_code_async',
+      '    await CodeRunner(',
+      '  File "/project/myproject/main.py", line 5, in <module>',
+      '    foo()',
+      '  File "/project/myproject/utils.py", line 2, in foo',
+      '    raise ValueError("oops")',
+      'ValueError: oops',
+    ].join('\n')
+
+    const result = formatPythonError(input)
+    expect(result).toContain('File "myproject/main.py", line 5')
+    expect(result).toContain('File "myproject/utils.py", line 2')
+    expect(result).not.toContain('/project/')
   })
 
   it('handles non-Error values passed as err', () => {

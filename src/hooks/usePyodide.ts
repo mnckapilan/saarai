@@ -62,7 +62,7 @@ export function usePyodide() {
   }, [initWorker])
 
   const runCode = useCallback(
-    async (code: string, scriptDir?: string) => {
+    async (code: string, scriptDir?: string, scriptPath?: string) => {
       if (!workerRef.current || status !== 'ready') return
 
       // Reset any pending interrupt flag before starting a new run.
@@ -71,7 +71,7 @@ export function usePyodide() {
 
       setStatus('running')
       setOutput([])
-      workerRef.current.postMessage({ type: 'run', code, scriptDir })
+      workerRef.current.postMessage({ type: 'run', code, scriptDir, scriptPath })
     },
     [status],
   )

@@ -5,7 +5,7 @@ const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
 
 type InMessage =
   | { type: 'init'; interruptBuffer: Uint8Array | null }
-  | { type: 'run'; code: string; scriptDir?: string }
+  | { type: 'run'; code: string; scriptDir?: string; scriptPath?: string }
   | { type: 'mountFiles'; files: [string, string][]; cwd: string }
   | { type: 'patchFile'; path: string; content: string }
 
@@ -67,9 +67,13 @@ function formatPythonError(err: unknown): string {
     }
   }
 
+  // Strip the MEMFS mount prefix so paths show as "myproject/main.py"
+  // instead of "/project/myproject/main.py".
+  const cleaned = out.join('\n').replace(/File "\/project\//g, 'File "')
+
   // If every frame was internal the header is now orphaned — remove it.
   // "Traceback (most recent call last):\nSomeError" → "SomeError"
-  const result = out.join('\n').replace(/^Traceback \(most recent call last\):\s*\n(?=\w)/, '')
+  const result = cleaned.replace(/^Traceback \(most recent call last\):\s*\n(?=\w)/, '')
 
   return result.trim()
 }
@@ -94,7 +98,7 @@ function mkdirP(path: string) {
 async function handleMessage(msg: InMessage) {
   switch (msg.type) {
     case 'run': {
-      const { code, scriptDir } = msg
+      const { code, scriptDir, scriptPath } = msg
       try {
         // Mirror `python script.py` behaviour: add the script's directory to
         // sys.path[0] and evict stale user-project modules so edits are seen.
@@ -112,7 +116,10 @@ for _k in _stale:
 importlib.invalidate_caches()
 del _sd, _stale, _script_dir
 `.trim())
-        await pyodide!.runPythonAsync(code)
+        // Pass the MEMFS path as filename so Python tracebacks show the real
+        // file name and can read source lines from MEMFS for display.
+        // Falls back to '<stdin>' when running a selection or scratch code.
+        await pyodide!.runPythonAsync(code, { filename: scriptPath ?? '<stdin>' })
       } catch (err) {
         post({ type: 'stderr', text: formatPythonError(err) })
       }
