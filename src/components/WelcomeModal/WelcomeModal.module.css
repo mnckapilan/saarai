@@ -49,7 +49,14 @@
 .subtitle {
   font-size: 13px;
   color: var(--color-text-secondary);
+  margin: 0 0 2px;
+}
+
+.nameOrigin {
+  font-size: 11px;
+  color: var(--color-text-secondary);
   margin: 0;
+  opacity: 0.7;
 }
 
 /* ── Sections ────────────────────────────────────────────────────────────── */
