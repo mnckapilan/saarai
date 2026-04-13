@@ -1,4 +1,4 @@
-# 🐍 Saarai – Python IDE
+# 🐍 Saarai – Web Python IDE
 
 A browser-based Python IDE — no install, no server, no account. Write and run Python entirely in the browser using WebAssembly.
 
