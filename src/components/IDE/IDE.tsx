@@ -112,7 +112,7 @@ function buildFileTreeFromPaths(filePaths: string[], extraDirPaths: string[] = [
 
 export function IDE() {
   const [code, setCode] = useState('')
-  const { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile } = usePyodide()
+  const { status, output, runCode, interrupt, clearOutput, mountFiles, patchFile, writtenFiles } = usePyodide()
   const { font, setFont } = useFont()
   const { fontSize, setFontSize } = useFontSize()
   const { theme, toggleTheme } = useTheme()
@@ -165,7 +165,26 @@ export function IDE() {
     )
   }
 
-  const handleRun = useCallback(() => {
+  useEffect(() => {
+    if (!writtenFiles || writtenFiles.length === 0) return
+    for (const [memfsPath, content] of writtenFiles) {
+      // Strip /project/ prefix to get the contentMap key (e.g. "myproject/output.txt")
+      const contentMapKey = memfsPath.slice('/project/'.length)
+      contentMapRef.current.set(contentMapKey, content)
+      const handle = dirHandleRef.current
+      if (handle) {
+        // Strip "dirName/" prefix to get the path relative to the FSA handle
+        const relPath = contentMapKey.slice(handle.name.length + 1)
+        writeToDirectory(handle, relPath, content).catch(console.error)
+      }
+    }
+    refreshFileTree()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [writtenFiles])
+
+  const handleRun = useCallback(async () => {
+    // Save the active file before running so MEMFS reflects the latest editor content.
+    await handleSaveRef.current()
     // Pass the MEMFS directory of the active file so runCode can add it to
     // sys.path[0], mirroring `python script.py` behaviour. Without this,
     // imports of sibling modules fail when the active file is in a subdirectory.
