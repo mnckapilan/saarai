@@ -136,6 +136,28 @@ test.describe('code execution', () => {
     }
   })
 
+  test('Stop button appears while code is running and interrupts execution', async ({ page }) => {
+    // An infinite loop keeps the runtime in 'running' state indefinitely.
+    const tmpFile = await openPyFile(page, 'while True:\n    pass\n')
+    try {
+      await waitForReady(page)
+      await page.getByRole('button', { name: 'Run code' }).click()
+
+      // The Run button should be replaced by a Stop button while running.
+      const stopButton = page.getByRole('button', { name: 'Stop execution' })
+      await expect(stopButton).toBeVisible({ timeout: 5_000 })
+      await expect(page.getByRole('button', { name: 'Run code' })).not.toBeVisible()
+
+      await stopButton.click()
+
+      // After stopping, the runtime should return to ready.
+      await expect(page.getByText('● Ready')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByRole('button', { name: 'Run code' })).toBeVisible()
+    } finally {
+      unlinkSync(tmpFile)
+    }
+  })
+
   test('running code a second time clears the previous output', async ({ page }) => {
     const tmpFile = await openPyFile(page, 'print("first run")\n')
     try {
