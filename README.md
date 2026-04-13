@@ -1,8 +1,8 @@
-# Saarai
+# 🐍 Saarai
 
 A browser-based Python IDE — no install, no server, no account. Write and run Python entirely in the browser using WebAssembly.
 
-**Why Saarai?** Named after *saarai paambu* (சாரைப்பாம்பு), a Tamil word for a type of snake — keeping with the Python theme.
+**Why Saarai?** 🐍 Named after *saarai paambu* (சாரைப்பாம்பு), a Tamil word for a type of snake — keeping with the Python theme.
 
 ## Features
 
