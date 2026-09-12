@@ -1,0 +1,31 @@
+# saarai.dev — https://github.com/mnckapilan/saarai
+#
+# Search engines and user-initiated assistant fetches are welcome.
+# Bulk training crawlers are not. See also the Cloudflare "Block AI bots"
+# setting, which enforces this at the edge rather than asking politely.
+
+User-agent: *
+Allow: /
+
+# ── Training / bulk-scraping crawlers ────────────────────────────────────
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: CCBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Meta-ExternalAgent
+User-agent: Bytespider
+User-agent: Diffbot
+User-agent: omgili
+User-agent: omgilibot
+User-agent: cohere-ai
+User-agent: cohere-training-data-crawler
+User-agent: PanguBot
+User-agent: DeepSeekBot
+User-agent: ChatGLM-Spider
+User-agent: MoonshotBot
+User-agent: KimiBot
+User-agent: Timpibot
+User-agent: ImagesiftBot
+Disallow: /
