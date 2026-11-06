@@ -133,3 +133,22 @@ describe('Toolbar — settings button', () => {
     expect(onOpenSettings).toHaveBeenCalledOnce()
   })
 })
+
+describe('Toolbar — New file in File menu', () => {
+  it('shows a New file item that calls onNewFile and closes the menu', async () => {
+    const onNewFile = vi.fn()
+    renderToolbar({ onNewFile })
+    await userEvent.click(screen.getByRole('button', { name: /^File$/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^New file$/i }))
+    expect(onNewFile).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('omits the New file item when onNewFile is not passed', async () => {
+    renderToolbar()
+    await userEvent.click(screen.getByRole('button', { name: /^File$/i }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^New file$/i })).not.toBeInTheDocument()
+  })
+})
+

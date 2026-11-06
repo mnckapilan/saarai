@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FileNode } from '../../types'
+import { parentOf } from '../../utils/path'
 import styles from './FileTree.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -301,11 +302,13 @@ export function FileTree({ nodes, activeFilePath, unsavedPath, onFileSelect, onO
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
 
   // Header "+file"/"+folder" create at the directory of the active file,
-  // falling back to the project root (first node's path).
-  const rootPath = nodes[0]?.path ?? ''
-  const defaultParent = activeFilePath
-    ? activeFilePath.slice(0, activeFilePath.lastIndexOf('/'))
-    : rootPath
+  // falling back to the project root: the single top-level folder of an
+  // opened folder, or '' (top level) for loose files like a scratch workspace.
+  const rootPath = nodes.length === 1 && nodes[0].type === 'directory' ? nodes[0].path : ''
+  const defaultParent = activeFilePath ? parentOf(activeFilePath) : rootPath
+  const isCreatingAtTop =
+    (pendingAction?.type === 'createFile' || pendingAction?.type === 'createFolder') &&
+    pendingAction.parentPath === ''
 
   return (
     <div className={styles.container}>
@@ -334,7 +337,24 @@ export function FileTree({ nodes, activeFilePath, unsavedPath, onFileSelect, onO
             </button>
           </div>
         ) : (
-          nodes.map((node) => (
+          <>
+          {isCreatingAtTop && (
+            <div className={styles.fileRow} style={{ paddingLeft: `${8 + 16}px` }}>
+              <span className={styles.icon}>
+                {pendingAction!.type === 'createFile' ? <FileIcon /> : <FolderIcon />}
+              </span>
+              <InlineInput
+                onConfirm={(name) => {
+                  pendingAction!.type === 'createFile'
+                    ? ops!.onCreateFile('', name)
+                    : ops!.onCreateFolder('', name)
+                  setPendingAction(null)
+                }}
+                onCancel={() => setPendingAction(null)}
+              />
+            </div>
+          )}
+          {nodes.map((node) => (
             <TreeNode
               key={node.path}
               node={node}
@@ -346,7 +366,8 @@ export function FileTree({ nodes, activeFilePath, unsavedPath, onFileSelect, onO
               setPendingAction={setPendingAction}
               depth={0}
             />
-          ))
+          ))}
+          </>
         )}
       </div>
     </div>

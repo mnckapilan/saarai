@@ -19,6 +19,8 @@ import {
   createDirectoryInDirectory,
 } from '../../hooks/useFSA'
 import { FileNode } from '../../types'
+import { joinPath, parentOf } from '../../utils/path'
+import { SCRATCH_FILE, clearScratch, loadScratch, saveScratch } from '../../utils/scratch'
 import styles from './IDE.module.css'
 
 const WELCOME_SEEN_KEY = 'saarai:welcomeSeen'
@@ -151,6 +153,11 @@ export function IDE() {
   // Stable refs so the autosave interval never captures stale closures.
   const canSaveRef = useRef(false)
   const handleSaveRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false))
+  // Scratch mode: an in-memory workspace created via "New file", persisted to
+  // localStorage so it survives page reloads.
+  const [scratchMode, setScratchMode] = useState(false)
+  const scratchModeRef = useRef(false)
+  scratchModeRef.current = scratchMode
 
   useEffect(() => {
     folderInputRef.current?.setAttribute('webkitdirectory', '')
@@ -164,6 +171,70 @@ export function IDE() {
       ),
     )
   }
+
+  // Before replacing the workspace, reset Monaco models belonging to the old
+  // one so a same-named file in the new workspace doesn't show stale content.
+  function resetEditorModels(nextActive: string | null, nextContent: string) {
+    for (const path of contentMapRef.current.keys()) {
+      if (path === nextActive) editorRef.current?.setModelValue(path, nextContent)
+      else editorRef.current?.disposeModel(path)
+    }
+  }
+
+  // Ask before discarding work that only lives in this tab: unsaved FSA edits,
+  // or a non-empty scratch workspace.
+  function confirmDiscard(): boolean {
+    if (canSaveRef.current) {
+      return window.confirm('Discard unsaved changes to the current file?')
+    }
+    if (
+      scratchModeRef.current &&
+      Array.from(contentMapRef.current.values()).some((v) => v.trim() !== '')
+    ) {
+      return window.confirm(
+        'Discard your scratch files?\n\nThey are only stored in this browser and will be lost.',
+      )
+    }
+    return true
+  }
+
+  function leaveScratchMode() {
+    if (!scratchModeRef.current) return
+    scratchModeRef.current = false
+    setScratchMode(false)
+    clearScratch()
+  }
+
+  // Restore a scratch workspace saved in a previous session.
+  useEffect(() => {
+    const saved = loadScratch()
+    if (!saved) return
+    contentMapRef.current = new Map(saved.files)
+    emptyDirsRef.current = new Set(saved.emptyDirs)
+    dirHandleRef.current = null
+    cwdRef.current = '/project'
+    refreshFileTree()
+    const content = saved.active ? contentMapRef.current.get(saved.active) ?? '' : ''
+    setCode(content)
+    setActiveFilePath(saved.active)
+    setLastSavedCode(saved.active ? content : null)
+    setScratchMode(true)
+    mountFiles(contentMapRef.current, '/project')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist the scratch workspace on every edit and file-tree change. In
+  // scratch mode contentMap is kept live (there is no disk to save to), so
+  // switching files and running sibling imports see the latest edits.
+  useEffect(() => {
+    if (!scratchMode) return
+    if (activeFilePath !== null) contentMapRef.current.set(activeFilePath, code)
+    saveScratch({
+      files: Array.from(contentMapRef.current.entries()),
+      emptyDirs: Array.from(emptyDirsRef.current),
+      active: activeFilePath,
+    })
+  }, [scratchMode, code, activeFilePath, fileTree])
 
   useEffect(() => {
     if (!writtenFiles || writtenFiles.length === 0) return
@@ -203,10 +274,32 @@ export function IDE() {
     fileInputRef.current?.click()
   }, [])
 
+  const handleNewFile = useCallback(() => {
+    if (!confirmDiscard()) return
+    resetEditorModels(SCRATCH_FILE, '')
+    dirHandleRef.current = null
+    emptyDirsRef.current = new Set()
+    cwdRef.current = '/project'
+    contentMapRef.current = new Map([[SCRATCH_FILE, '']])
+    refreshFileTree()
+    setCode('')
+    setActiveFilePath(SCRATCH_FILE)
+    setLastSavedCode('')
+    scratchModeRef.current = true
+    setScratchMode(true)
+    mountFiles(contentMapRef.current, '/project')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mountFiles])
+
   const handleOpenFolderClick = useCallback(async () => {
     if (fsaSupported()) {
       try {
         const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
+        // Confirm after picking (not before) so the picker keeps its user
+        // activation; cancelling here leaves the current workspace intact.
+        if (!confirmDiscard()) return
+        resetEditorModels(null, '')
+        leaveScratchMode()
         dirHandleRef.current = handle
         emptyDirsRef.current = new Set()
 
@@ -228,13 +321,21 @@ export function IDE() {
     } else {
       folderInputRef.current?.click()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mountFiles])
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
+      e.target.value = ''
       if (!file) return
+      if (!confirmDiscard()) return
       file.text().then((text) => {
+        resetEditorModels(file.name, text)
+        leaveScratchMode()
+        dirHandleRef.current = null
+        emptyDirsRef.current = new Set()
+        cwdRef.current = '/project'
         contentMapRef.current = new Map([[file.name, text]])
         refreshFileTree()
         setCode(text)
@@ -243,7 +344,6 @@ export function IDE() {
 
         mountFiles(contentMapRef.current, '/project')
       })
-      e.target.value = ''
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mountFiles],
@@ -252,8 +352,12 @@ export function IDE() {
   const handleFolderChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? [])
+      e.target.value = ''
       if (files.length === 0) return
+      if (!confirmDiscard()) return
 
+      resetEditorModels(null, '')
+      leaveScratchMode()
       dirHandleRef.current = null
       emptyDirsRef.current = new Set()
       setLastSavedCode(null)
@@ -280,9 +384,8 @@ export function IDE() {
       setFileTree(buildFileTree(files))
       setActiveFilePath(null)
       mountFiles(contentMap, cwd)
-
-      e.target.value = ''
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [mountFiles],
   )
 
@@ -296,7 +399,19 @@ export function IDE() {
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     const handle = dirHandleRef.current
-    if (!handle || !activeFilePath) return false
+    if (!activeFilePath) return false
+    if (!handle) {
+      // Scratch files are persisted by the localStorage effect; just keep
+      // MEMFS in sync so the next run (and sibling imports) see the edits.
+      // contentMap is live in scratch mode, so sync every file — not just the
+      // active one — or edits to a sibling module would be invisible to import.
+      if (!scratchModeRef.current) return false
+      contentMapRef.current.set(activeFilePath, code)
+      for (const [path, content] of contentMapRef.current) {
+        patchFile(`/project/${path}`, content)
+      }
+      return true
+    }
     const relPath = activeFilePath.slice(handle.name.length + 1)
     try {
       await writeToDirectory(handle, relPath, code)
@@ -358,7 +473,7 @@ export function IDE() {
 
   const handleCreateFile = useCallback(
     async (parentPath: string, name: string) => {
-      const filePath = `${parentPath}/${name}`
+      const filePath = joinPath(parentPath, name)
       if (contentMapRef.current.has(filePath)) return // already exists
       contentMapRef.current.set(filePath, '')
       emptyDirsRef.current.delete(parentPath) // no longer empty
@@ -379,7 +494,7 @@ export function IDE() {
 
   const handleCreateFolder = useCallback(
     async (parentPath: string, name: string) => {
-      const dirPath = `${parentPath}/${name}`
+      const dirPath = joinPath(parentPath, name)
       emptyDirsRef.current.add(dirPath)
       refreshFileTree()
       if (dirHandleRef.current) {
@@ -394,8 +509,8 @@ export function IDE() {
   const handleRename = useCallback(
     async (path: string, newName: string) => {
       const isFile = contentMapRef.current.has(path)
-      const parent = path.slice(0, path.lastIndexOf('/'))
-      const newPath = `${parent}/${newName}`
+      const parent = parentOf(path)
+      const newPath = joinPath(parent, newName)
 
       if (isFile) {
         editorRef.current?.disposeModel(path)
@@ -562,6 +677,7 @@ export function IDE() {
         onStop={interrupt}
         fileOpen={activeFilePath !== null && activeFilePath.endsWith('.py')}
         hasEditorSelection={hasEditorSelection}
+        onNewFile={handleNewFile}
         onImport={handleImportClick}
         onOpenFolder={handleOpenFolderClick}
         onSave={onSave}
@@ -642,6 +758,9 @@ export function IDE() {
                 <div className={styles.noFile}>
                   <span className={styles.noFileTitle}>No file open</span>
                   <div className={styles.noFileButtons}>
+                    <button className={styles.noFileButton} onClick={handleNewFile}>
+                      New file
+                    </button>
                     <button className={styles.noFileButton} onClick={handleImportClick}>
                       Open file
                     </button>

@@ -13,6 +13,8 @@ interface ToolbarProps {
   fileOpen?: boolean
   /** Whether the editor currently has a non-empty text selection. */
   hasEditorSelection?: boolean
+  /** Starts a blank in-memory scratch workspace with untitled.py. */
+  onNewFile?: () => void
   onImport: () => void
   onOpenFolder: () => void
   /** Present only when a folder was opened via the File System Access API. */
@@ -112,8 +114,9 @@ function useDropdown() {
 }
 
 function FileMenu({
-  onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
+  onNewFile, onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
 }: {
+  onNewFile?: () => void
   onImport: () => void
   onOpenFolder: () => void
   onSave?: () => void
@@ -137,6 +140,15 @@ function FileMenu({
       </button>
       {open && (
         <div className={styles.menuPopup} role="menu">
+          {onNewFile && (
+            <button
+              className={styles.menuItem}
+              role="menuitem"
+              onClick={() => { onNewFile(); setOpen(false) }}
+            >
+              New file
+            </button>
+          )}
           <button
             className={styles.menuItem}
             role="menuitem"
@@ -264,7 +276,7 @@ function FontSizeControl({ size, onChange }: { size: number; onChange: (n: numbe
 
 export function Toolbar({
   status, onRun, onStop, fileOpen = false, hasEditorSelection = false,
-  onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
+  onNewFile, onImport, onOpenFolder, onSave, canSave, onReload, autosaveEnabled, onAutosaveToggle,
   font, onFontChange, fontSize, onFontSizeChange,
   theme, onThemeToggle, onOpenSettings, onAbout,
 }: ToolbarProps) {
@@ -292,6 +304,7 @@ export function Toolbar({
         </button>
         <div className={styles.dividerV} aria-hidden="true" />
         <FileMenu
+          onNewFile={onNewFile}
           onImport={onImport}
           onOpenFolder={onOpenFolder}
           onSave={onSave}
