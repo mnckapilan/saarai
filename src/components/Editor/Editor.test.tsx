@@ -39,7 +39,7 @@ const mockMonaco = {
 }
 
 vi.mock('monaco-editor', () => ({}))
-vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
+vi.mock('monaco-editor/editor/editor.worker?worker', () => ({
   default: class MockWorker {},
 }))
 

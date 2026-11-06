@@ -2,7 +2,7 @@ import { type Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef 
 import MonacoEditor, { type OnMount, type Monaco } from '@monaco-editor/react'
 import { loader } from '@monaco-editor/react'
 import * as monacoEditor from 'monaco-editor'
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
+import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
 import styles from './Editor.module.css'
 
 // Wire Monaco's web worker. We only need the base editor worker since
@@ -44,7 +44,7 @@ const BASE_EDITOR_OPTIONS: MonacoOptions = {
   bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: false },
   guides: { indentation: true, bracketPairs: true, highlightActiveBracketPair: true },
   renderWhitespace: 'selection',
-  hover: { enabled: true, delay: 300, sticky: true },
+  hover: { enabled: 'on', delay: 300, sticky: true },
 }
 
 /** Imperative handle exposed to the parent via ref. */
