@@ -1,0 +1,15 @@
+{
+  "name": "saarai",
+  "compatibility_date": "2026-10-30",
+  // Assets-only Worker: no script, Cloudflare serves dist/ directly.
+  // public/_headers (COOP/COEP for SharedArrayBuffer) is copied into dist/ and honoured.
+  "assets": {
+    "directory": "./dist",
+    // Serve dist/404.html with a real 404 status for unmatched paths
+    // (Pages did this implicitly when 404.html existed).
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "saarai.dev", "custom_domain": true }],
+  "workers_dev": true,
+  "observability": { "enabled": true }
+}
