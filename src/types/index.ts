@@ -1,4 +1,4 @@
-export type OutputLineType = 'stdout' | 'stderr' | 'info'
+type OutputLineType = 'stdout' | 'stderr' | 'info'
 
 export interface OutputLine {
   type: OutputLineType

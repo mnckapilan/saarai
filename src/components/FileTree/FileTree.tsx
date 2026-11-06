@@ -10,7 +10,7 @@ type PendingAction =
   | { type: 'rename'; path: string }
   | null
 
-export interface FileOps {
+interface FileOps {
   onCreateFile: (parentPath: string, name: string) => void
   onCreateFolder: (parentPath: string, name: string) => void
   onRename: (path: string, newName: string) => void
