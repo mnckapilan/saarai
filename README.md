@@ -49,10 +49,10 @@ A browser-based Python IDE — no install, no server, no account. Write and run 
 
 | Layer | Technology |
 |---|---|
-| UI | React 18 + TypeScript |
+| UI | React 19 + TypeScript |
 | Build | Vite |
 | Editor | Monaco Editor (npm) |
-| Python | Pyodide 0.26.4 (CDN, Web Worker) |
+| Python | Pyodide 314.0.7 / Python 3.14 (CDN, Web Worker) |
 | Layout | react-resizable-panels |
 | Styles | CSS Modules + CSS custom properties |
 | Unit tests | Vitest + Testing Library |

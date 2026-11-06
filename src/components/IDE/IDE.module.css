@@ -28,8 +28,8 @@
 }
 
 .resizeHandleCol:hover,
-.resizeHandleCol[data-resize-handle-active='pointer'],
-.resizeHandleCol[data-resize-handle-active='keyboard'] {
+.resizeHandleCol[data-separator='active'],
+.resizeHandleCol[data-separator='focus'] {
   background: var(--color-accent);
 }
 
@@ -54,8 +54,8 @@
 }
 
 .resizeHandleRow:hover,
-.resizeHandleRow[data-resize-handle-active='pointer'],
-.resizeHandleRow[data-resize-handle-active='keyboard'] {
+.resizeHandleRow[data-separator='active'],
+.resizeHandleRow[data-separator='focus'] {
   background: var(--color-accent);
 }
 

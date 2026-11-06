@@ -23,10 +23,10 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          monaco: ['monaco-editor'],
+        codeSplitting: {
+          groups: [{ name: 'monaco', test: /node_modules[\\/]monaco-editor[\\/]/, tags: ['$initial'] }],
         },
       },
     },

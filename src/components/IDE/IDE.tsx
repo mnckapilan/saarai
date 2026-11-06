@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Group, Panel, Separator } from 'react-resizable-panels'
 import { Editor, type EditorHandle } from '../Editor/Editor'
 import { FileTree } from '../FileTree/FileTree'
 import { OutputPanel } from '../OutputPanel/OutputPanel'
@@ -595,8 +595,8 @@ export function IDE() {
         />
       )}
 
-      <PanelGroup direction="horizontal" className={styles.panelGroup}>
-        <Panel defaultSize={20} minSize={12} maxSize={45} className={styles.panel}>
+      <Group orientation="horizontal" className={styles.panelGroup}>
+        <Panel defaultSize="20%" minSize="12%" maxSize="45%" className={styles.panel}>
           <FileTree
             nodes={fileTree}
             activeFilePath={activeFilePath}
@@ -607,13 +607,13 @@ export function IDE() {
           />
         </Panel>
 
-        <PanelResizeHandle className={styles.resizeHandleCol}>
+        <Separator className={styles.resizeHandleCol}>
           <div className={styles.resizeHandleBarCol} />
-        </PanelResizeHandle>
+        </Separator>
 
         <Panel className={styles.panel}>
-          <PanelGroup direction="vertical">
-            <Panel defaultSize={65} minSize={20} className={styles.panel}>
+          <Group orientation="vertical">
+            <Panel defaultSize="65%" minSize="20%" className={styles.panel}>
               {activeFilePath !== null ? (
                 <div className={styles.editorWrapper}>
                   <div className={styles.editorArea}>
@@ -653,16 +653,16 @@ export function IDE() {
               )}
             </Panel>
 
-            <PanelResizeHandle className={styles.resizeHandleRow}>
+            <Separator className={styles.resizeHandleRow}>
               <div className={styles.resizeHandleBarRow} />
-            </PanelResizeHandle>
+            </Separator>
 
-            <Panel defaultSize={35} minSize={12} className={styles.panel}>
+            <Panel defaultSize="35%" minSize="12%" className={styles.panel}>
               <OutputPanel output={output} onClear={clearOutput} />
             </Panel>
-          </PanelGroup>
+          </Group>
         </Panel>
-      </PanelGroup>
+      </Group>
     </div>
   )
 }
