@@ -47,6 +47,8 @@ When a folder is opened via `showDirectoryPicker()` (Chrome/Edge), `IDE` holds a
 
 ### File / folder import
 
+- **New file** (scratch mode): creates an in-memory workspace with a top-level `untitled.py` at `/project/untitled.py`, cwd `/project`. In scratch mode `contentMapRef` is kept live on every edit (no disk to save to) and the whole workspace (files, empty dirs, active file) is persisted to `localStorage` under `saarai:scratch` and restored on page load. Opening a file/folder leaves scratch mode and clears it. Replacing a workspace with unsaved FSA edits or non-empty scratch files prompts `confirm()` — for Open file/folder this happens *after* the picker returns so the picker keeps its user activation.
+- Top-level files have an empty parent path; use `parentOf` / `joinPath` from `src/utils/path.ts` rather than string-slicing on `/`.
 - **Single file** (`Open file`): reads the file via `file.text()`, sets editor content, and writes it to Pyodide's MEMFS at `/project/<filename>` with cwd `/project`.
 - **Folder** (`Open folder`): uses `<input webkitdirectory>`. All visible files (hidden dot-prefixed paths are skipped) are read eagerly with `Promise.allSettled` — unreadable files are silently skipped. The full tree is written to `/project/` and cwd is set to `/project/<rootFolder>`, so `import` and `open()` work relative to the project root.
 - `mountFiles` in `usePyodide` posts a `mountFiles` message to the worker. The worker handles MEMFS writes: wipes `/project/`, recreates the directory tree via `pyodide.FS`, writes each file, then calls `os.chdir` + updates `sys.path`. Messages sent before Pyodide finishes loading are queued in the worker and replayed once ready.

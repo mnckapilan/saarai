@@ -65,3 +65,67 @@ describe('FileTree', () => {
     expect(fileRow).not.toHaveAttribute('aria-current')
   })
 })
+
+describe('FileTree — header New file parent', () => {
+  const scratchNode: FileNode = { name: 'untitled.py', path: 'untitled.py', type: 'file' }
+  const projNode: FileNode = { name: 'proj', path: 'proj', type: 'directory', children: [] }
+
+  function makeOps() {
+    return { onCreateFile: vi.fn(), onCreateFolder: vi.fn(), onRename: vi.fn(), onDelete: vi.fn() }
+  }
+
+  it('creates at top level (not "untitled.p") with only top-level files', async () => {
+    const ops = makeOps()
+    render(
+      <FileTree nodes={[scratchNode]} activeFilePath={null} onFileSelect={noop} onOpenFolder={noop} ops={ops} />,
+    )
+    await userEvent.click(screen.getByTitle('New file'))
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+    await userEvent.type(input, 'name.py{Enter}')
+    expect(ops.onCreateFile).toHaveBeenCalledExactlyOnceWith('', 'name.py')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('uses empty parent when the active file is top-level', async () => {
+    const ops = makeOps()
+    render(
+      <FileTree nodes={[scratchNode]} activeFilePath="untitled.py" onFileSelect={noop} onOpenFolder={noop} ops={ops} />,
+    )
+    await userEvent.click(screen.getByTitle('New file'))
+    await userEvent.type(screen.getByRole('textbox'), 'other.py{Enter}')
+    expect(ops.onCreateFile).toHaveBeenCalledExactlyOnceWith('', 'other.py')
+  })
+
+  it('creates a folder at top level via header New folder', async () => {
+    const ops = makeOps()
+    render(
+      <FileTree nodes={[scratchNode]} activeFilePath={null} onFileSelect={noop} onOpenFolder={noop} ops={ops} />,
+    )
+    await userEvent.click(screen.getByTitle('New folder'))
+    await userEvent.type(screen.getByRole('textbox'), 'pkg{Enter}')
+    expect(ops.onCreateFolder).toHaveBeenCalledExactlyOnceWith('', 'pkg')
+  })
+
+  it('cancels the top-level input with Escape', async () => {
+    const ops = makeOps()
+    render(
+      <FileTree nodes={[scratchNode]} activeFilePath={null} onFileSelect={noop} onOpenFolder={noop} ops={ops} />,
+    )
+    await userEvent.click(screen.getByTitle('New file'))
+    await userEvent.type(screen.getByRole('textbox'), '{Escape}')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(ops.onCreateFile).not.toHaveBeenCalled()
+  })
+
+  it('still creates inside the single top-level folder when no file is active', async () => {
+    const ops = makeOps()
+    render(
+      <FileTree nodes={[projNode]} activeFilePath={null} onFileSelect={noop} onOpenFolder={noop} ops={ops} />,
+    )
+    await userEvent.click(screen.getAllByTitle('New file')[0])
+    await userEvent.type(screen.getByRole('textbox'), 'a.py{Enter}')
+    expect(ops.onCreateFile).toHaveBeenCalledExactlyOnceWith('proj', 'a.py')
+  })
+})
+

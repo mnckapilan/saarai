@@ -125,6 +125,10 @@ export function Editor({
     const existing = modelsRef.current.get(path)
     const activeModel = existing ?? (() => {
       const uri = monaco.Uri.parse(`inmemory://model/${encodeURIComponent(path)}`)
+      // A model for this URI can outlive a previous Editor instance (Monaco
+      // models are global). Drop it so createModel doesn't throw and the new
+      // file doesn't inherit stale content.
+      monaco.editor.getModel(uri)?.dispose()
       const m = monaco.editor.createModel(initialContent, 'python', uri)
       modelsRef.current.set(path, m)
       return m
