@@ -307,6 +307,52 @@ test.describe('disk round-trip via FSA', () => {
     await page.getByRole('button', { name: 'File', exact: true }).waitFor()
   })
 
+  // Regression: re-mounting wiped /project while Python's cwd was inside it,
+  // which newer Emscripten rejects with EBUSY, so the second folder never mounted.
+  test('opening a second folder in the same session replaces the first one in MEMFS', async ({ page }) => {
+    const mountErrors: string[] = []
+    page.on('console', (m) => {
+      if (m.type() === 'error' && m.text().includes('failed to mount')) mountErrors.push(m.text())
+    })
+
+    const tmpDir = mkdtempSync(join(tmpdir(), 'saarai_fsa_'))
+    const dirA = join(tmpDir, 'projA')
+    const dirB = join(tmpDir, 'projB')
+    mkdirSync(dirA)
+    mkdirSync(dirB)
+    writeFileSync(join(dirA, 'a.txt'), 'from A')
+    writeFileSync(join(dirA, 'a.py'), 'print(open("a.txt").read())\n')
+    writeFileSync(join(dirB, 'b.txt'), 'from B')
+    writeFileSync(
+      join(dirB, 'b.py'),
+      'import os\nprint(open("b.txt").read(), os.path.basename(os.getcwd()), os.path.exists("/project/projA"))\n',
+    )
+    const output = page.getByRole('log', { name: 'Program output' })
+
+    try {
+      await mockShowDirectoryPicker(page, dirA, 'projA')
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Open folder…' }).click()
+      await waitForReady(page)
+      await page.getByText('a.py', { exact: true }).click()
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(output).toContainText('from A', { timeout: 15_000 })
+
+      await mockShowDirectoryPicker(page, dirB, 'projB')
+      await page.getByRole('button', { name: 'File', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Open folder…' }).click()
+      await expect(page.getByText('b.py', { exact: true })).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByText('a.py', { exact: true })).toHaveCount(0)
+      await page.getByText('b.py', { exact: true }).click()
+      await page.getByRole('button', { name: 'Run code' }).click()
+      await expect(output).toContainText('from B projB False', { timeout: 15_000 })
+
+      expect(mountErrors).toEqual([])
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true })
+    }
+  })
+
   test('file written by Python can be edited in Monaco and the updated content is read by a second script without reloading', async ({ page }) => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'saarai_fsa_'))
     const projectDir = join(tmpDir, 'myproject')
