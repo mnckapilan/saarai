@@ -1,7 +1,7 @@
 import type { PyodideInterface } from 'pyodide'
 
 // Pyodide WASM files are loaded from CDN. Version must match the npm package.
-const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
+const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v314.0.7/full/'
 
 type InMessage =
   | { type: 'init'; interruptBuffer: Uint8Array | null }
@@ -27,7 +27,7 @@ function post(msg: OutMessage) {
 //
 // Raw errors look like:
 //   PythonError: Traceback (most recent call last):
-//     File "/lib/python312.zip/_pyodide/_base.py", line 597, in eval_code_async
+//     File "/lib/python314.zip/_pyodide/_base.py", line 597, in eval_code_async
 //       await CodeRunner(
 //     File "<exec>", line 3, in <module>
 //       foo()
@@ -179,6 +179,8 @@ del _sd, _stale, _script_dir
       try {
         pyodide!.runPython(`
 import shutil, os
+# Leave /project first: Emscripten refuses to remove the cwd (EBUSY).
+os.chdir('/')
 if os.path.exists('/project'):
     shutil.rmtree('/project')
 os.makedirs('/project')

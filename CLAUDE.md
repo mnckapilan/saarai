@@ -53,7 +53,7 @@ When a folder is opened via `showDirectoryPicker()` (Chrome/Edge), `IDE` holds a
 
 ### Key design decisions
 
-- **Pyodide CDN loading**: `indexURL` points to `https://cdn.jsdelivr.net/pyodide/v0.26.4/full/`. The npm package is installed only for TypeScript types; WASM/stdlib files never enter the bundle. The CDN version must match the npm package version.
+- **Pyodide CDN loading**: `indexURL` points to `https://cdn.jsdelivr.net/pyodide/v314.0.7/full/`. The npm package is installed only for TypeScript types; WASM/stdlib files never enter the bundle. The CDN version must match the npm package version.
 - **Monaco npm bundling**: `monaco-editor` and `@monaco-editor/react` are installed as npm deps. `Editor.tsx` calls `loader.config({ monaco: monacoEditor })` to pass the local npm instance to the `@monaco-editor/react` loader, bypassing its default CDN fetch. The `monaco` chunk is split out in `vite.config.ts` via `manualChunks` to keep the main bundle lean.
 - **CSS Modules + CSS custom properties**: All design tokens live in `src/styles/tokens.css` and are imported via `src/index.css`. Component styles use `.module.css` files co-located with their component.
 - **`vite.config.ts`** excludes `pyodide` from `optimizeDeps` — required to prevent Vite from trying to pre-bundle Pyodide's Node-specific internals. Also sets `worker.format: 'es'` so dynamic imports work inside the worker, and adds `Cross-Origin-Opener-Policy: same-origin` / `Cross-Origin-Embedder-Policy: require-corp` headers to the dev server to enable `crossOriginIsolated` (required for `SharedArrayBuffer`).
