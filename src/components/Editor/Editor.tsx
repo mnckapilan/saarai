@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { type Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import MonacoEditor, { type OnMount, type Monaco } from '@monaco-editor/react'
 import { loader } from '@monaco-editor/react'
 import * as monacoEditor from 'monaco-editor'
@@ -78,12 +78,12 @@ interface EditorProps {
   fontLigatures: boolean
   fontSize: number
   bracketColorization: boolean
+  ref?: Ref<EditorHandle>
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, monacoTheme, fontFamily, fontLigatures, fontSize, bracketColorization },
-  ref,
-) {
+export function Editor({
+  ref, value, filePath, onChange, onRun, onSelectionChange, onCursorPositionChange, monacoTheme, fontFamily, fontLigatures, fontSize, bracketColorization,
+}: EditorProps) {
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
   const modelsRef = useRef<Map<string, monacoEditor.editor.ITextModel>>(new Map())
@@ -101,12 +101,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   onSelectionChangeRef.current = onSelectionChange
   const onCursorPositionChangeRef = useRef(onCursorPositionChange)
   onCursorPositionChangeRef.current = onCursorPositionChange
-
-  // editorValue is what we pass to <MonacoEditor value=…>.
-  // We keep it in sync with the active model ourselves so that
-  // @monaco-editor/react's own value-sync effect sees no delta and leaves our
-  // model content alone (avoids overwriting unsaved edits on file switch).
-  const [editorValue, setEditorValue] = useState(value)
 
   const options = useMemo<MonacoOptions>(
     () => ({ ...BASE_EDITOR_OPTIONS, fontFamily, fontLigatures, fontSize, bracketPairColorization: { enabled: bracketColorization } }),
@@ -143,19 +137,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const savedViewState = viewStatesRef.current.get(path)
     if (savedViewState) editor.restoreViewState(savedViewState)
 
-    // Sync editorValue to the model's current content — this prevents
-    // @monaco-editor/react from ever seeing a stale delta and pushing the
-    // wrong content into the model.
-    const current = activeModel.getValue()
-    setEditorValue(current)
-    onChangeRef.current(current)
+    onChangeRef.current(activeModel.getValue())
 
-    // Wire a per-model change listener so that editorValue stays in sync
-    // and the parent receives every keystroke.
+    // Forward every keystroke on the active model to the parent.
     changeSubRef.current = activeModel.onDidChangeContent(() => {
-      const v = activeModel.getValue()
-      setEditorValue(v)
-      onChangeRef.current(v)
+      onChangeRef.current(activeModel.getValue())
     })
   }
 
@@ -232,13 +218,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <MonacoEditor
         language="python"
         theme={monacoTheme}
-        value={editorValue}
-        // In multi-model mode we handle onChange via the model subscription
-        // above; passing it here would cause double-firing.
+        // In multi-model mode we own the models, so pass no value: an
+        // undefined value disables @monaco-editor/react's value-sync effect,
+        // which would otherwise overwrite the model with a stale render's
+        // value and drop keystrokes typed between renders. onChange likewise
+        // comes from the model subscription above.
+        value={filePath ? undefined : value}
         onChange={filePath ? undefined : (val) => onChange(val ?? '')}
         onMount={handleMount}
         options={options}
       />
     </div>
   )
-})
+}
